@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.pytest_cache/
+*.egg-info/
+eval_results/
+.ruff_cache/
+*.log
+ui/node_modules/
+ui/dist/
+# Real internal company policy documents — left out of version control
+# until the repo's visibility (public vs. private) is confirmed.
+policies/

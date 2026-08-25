@@ -1,0 +1,80 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16  # multi-arch: builds for linux/arm64 too
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-policy}
+      # Defaults to the throwaway local-dev value so `docker compose up` still
+      # works unconfigured. Set POSTGRES_PASSWORD in .env before this leaves a
+      # laptop — on the pilot VM the DB port below is reachable from the
+      # internet unless the firewall says otherwise.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-policy}
+      POSTGRES_DB: ${POSTGRES_DB:-policy}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      # Host access for DBeaver etc. (matches DATABASE_URL in .env). Bound to
+      # localhost so it is not published to the world on the pilot VM; drop the
+      # "127.0.0.1:" prefix only if you genuinely need remote DB access.
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      # Must use the same user/db as above — hardcoding them here leaves the
+      # container permanently unhealthy (and `app` never starting) the moment
+      # POSTGRES_USER/POSTGRES_DB are overridden.
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-policy} -d $${POSTGRES_DB:-policy}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Overrides for .env values that are host-network-specific in local
+      # dev — inside the compose network, services reach each other by
+      # service name.
+      # Rewrites only the HOST portion for the compose network; credentials
+      # come from the same POSTGRES_* values the postgres service uses. A fully
+      # hardcoded URL here would override env_file and silently defeat any
+      # POSTGRES_PASSWORD you set, so the app could no longer connect.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-policy}:${POSTGRES_PASSWORD:-policy}@postgres:5432/${POSTGRES_DB:-policy}
+      OLLAMA_BASE_URL: http://ollama:11434/v1
+      POLICY_DIR: /app/policies
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./policies:/app/policies
+      # BGE-M3 is ~1.6GB from Hugging Face; without this the container
+      # re-downloads it from scratch on every restart.
+      - hf_cache:/root/.cache/huggingface
+      # app/eval writes here; without this mount, results live only in the
+      # container's writable layer and vanish on the next recreate.
+      - ./eval_results:/app/eval_results
+    ports:
+      - "8000:8000"
+
+  ui:
+    build: ./ui
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "3000:80"
+
+  # V3 comparison run (local Qwen via Ollama) — uncomment to use, then in
+  # .env set LLM_PROVIDER=ollama and LLM_MODEL=qwen2.5:7b, and run:
+  #   docker compose exec ollama ollama pull qwen2.5:7b
+  # ollama:
+  #   image: ollama/ollama:latest  # multi-arch, includes linux/arm64
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   ports:
+  #     - "11434:11434"
+
+volumes:
+  postgres_data:
+  hf_cache:
+  # ollama_data:

@@ -1,0 +1,433 @@
+# Eval set for app/eval — Mongolian Q&A pairs (see docs/EVAL_RUNBOOK.md).
+#
+# expected_source_file must match policy_chunks.file_name EXACTLY (the bare
+# name stored at ingest, no version/date suffix; see docs/DATA_CONTRACT.md).
+# null for should_refuse: true cases, since no citation is expected.
+#
+# Grounded against the 22 ISO-27001 documents in ./policies/ as of 2026-08-10,
+# authored from facts read out of live policy_chunks rows — not guessed. The
+# earlier HR documents (work hours / leave / internal labour rules) were sample
+# data and have been removed from the corpus; questions about them now appear
+# below as REFUSAL cases, which is exactly what they should be.
+#
+# Three kinds of case, on purpose:
+#   - answerable      : a specific fact that exists in exactly one document
+#   - must-refuse     : not in the corpus at all (off-topic, or removed HR docs)
+#   - wrong-doc traps : security vocabulary that overlaps several policies, to
+#                       catch the failure mode where a plausible-but-wrong
+#                       document outranks the right one
+
+# --- L1-POL-04_Мэдээллийн_Аюулгүй_Байдлын_Бодлого.txt ---
+- id: 1
+  question: "Мэдээллийн аюулгүй байдлын бодлого ямар олон улсын стандартыг нэвтрүүлэхэд чиглэсэн бэ?"
+  expected_source_file: "L1-POL-04_Мэдээллийн_Аюулгүй_Байдлын_Бодлого.txt"
+  should_refuse: false
+
+- id: 2
+  question: "МАБ-ын бодлогыг аль толгой компанийн бодлогод нийцүүлэн боловсруулдаг вэ?"
+  expected_source_file: "L1-POL-04_Мэдээллийн_Аюулгүй_Байдлын_Бодлого.txt"
+  should_refuse: false
+
+- id: 3
+  question: "Мэдээллийн аюулгүй байдлын бодлогыг мөрдөөгүйгээс ямар эрсдэлүүд үүсч болзошгүй вэ?"
+  expected_source_file: "L1-POL-04_Мэдээллийн_Аюулгүй_Байдлын_Бодлого.txt"
+  should_refuse: false
+
+# --- L1-POL-10_МАБ-ын_сургалт_мэдээллийн_бодлого.txt ---
+- id: 4
+  question: "Шинэ ажилтныг мэдээллийн аюулгүй байдлын үндсэн сургалтад хэдэн хоногийн дотор хамруулах вэ?"
+  expected_source_file: "L1-POL-10_МАБ-ын_сургалт_мэдээллийн_бодлого.txt"
+  should_refuse: false
+
+- id: 5
+  question: "Мэдээллийн аюулгүй байдлын сургалтын шалгалтад хэдэн оноос доош авбал дахин шалгалт өгөх вэ?"
+  expected_source_file: "L1-POL-10_МАБ-ын_сургалт_мэдээллийн_бодлого.txt"
+  should_refuse: false
+
+- id: 6
+  question: "Мэдээллийн аюулгүй байдлын сургалтыг хэрхэн зохион байгуулдаг вэ?"
+  expected_source_file: "L1-POL-10_МАБ-ын_сургалт_мэдээллийн_бодлого.txt"
+  should_refuse: false
+
+# --- L1-POL-10_Хандалтын_хяналтын_бодлого.txt ---
+- id: 7
+  question: "Ажилтан хандах эрхээ хэдэн хоногийн хугацаанд ашиглаагүй бол эрхийг цуцлах процесс эхэлдэг вэ?"
+  expected_source_file: "L1-POL-10_Хандалтын_хяналтын_бодлого.txt"
+  should_refuse: false
+
+- id: 8
+  question: "Нууц үг, токен зэрэг баталгаажуулалтын мэдээллийг ямар шифрлэлтээр хадгалж, юугаар дамжуулдаг вэ?"
+  expected_source_file: "L1-POL-10_Хандалтын_хяналтын_бодлого.txt"
+  should_refuse: false
+
+- id: 9
+  question: "Хандах эрхийг тодорхойлохдоо юунд үндэслэдэг вэ?"
+  expected_source_file: "L1-POL-10_Хандалтын_хяналтын_бодлого.txt"
+  should_refuse: false
+
+# --- L1-POL-11_Нөөцлөлтийн_бодлого.txt ---
+- id: 10
+  question: "Нөөцлөлт хийхэд ямар дүрмийг баримталдаг вэ?"
+  expected_source_file: "L1-POL-11_Нөөцлөлтийн_бодлого.txt"
+  should_refuse: false
+
+- id: 11
+  question: "Нөөцлөлт амжилтгүй болсон тохиолдолд хэдэн минутын дотор SIEM системд мэдэгдэл өгөх вэ?"
+  expected_source_file: "L1-POL-11_Нөөцлөлтийн_бодлого.txt"
+  should_refuse: false
+
+- id: 12
+  question: "Өндөр ач холбогдолтой системүүдийн RTO, RPO хэд байх вэ?"
+  expected_source_file: "L1-POL-11_Нөөцлөлтийн_бодлого.txt"
+  should_refuse: false
+
+- id: 13
+  question: "Ослын сэргээлтийн төлөвлөгөөг жилд хэдэн удаа хянаж туршдаг вэ?"
+  expected_source_file: "L1-POL-11_Нөөцлөлтийн_бодлого.txt"
+  should_refuse: false
+
+# --- L1-POL-13_Цэвэр_ширээ_цэвэр_дэлгэцийн_бодлого.txt ---
+- id: 14
+  question: "Компьютерыг хэдэн минутаас дээш ашиглаагүй бол дэлгэц амраах программ автоматаар идэвхждэг вэ?"
+  expected_source_file: "L1-POL-13_Цэвэр_ширээ_цэвэр_дэлгэцийн_бодлого.txt"
+  should_refuse: false
+
+- id: 15
+  question: "Ажлын өдөр дуусах бүрд нууцлалтай мэдээллийг яаж хадгалах ёстой вэ?"
+  expected_source_file: "L1-POL-13_Цэвэр_ширээ_цэвэр_дэлгэцийн_бодлого.txt"
+  should_refuse: false
+
+- id: 16
+  question: "Цоожтой шүүгээ байхгүй бол өрөөг яах ёстой вэ?"
+  expected_source_file: "L1-POL-13_Цэвэр_ширээ_цэвэр_дэлгэцийн_бодлого.txt"
+  should_refuse: false
+
+# --- L1-POL-14_Тохиргооны_удирдлагын_бодлого.txt ---
+- id: 17
+  question: "Системийн тохиргооны өөрчлөлт бүрийг ямар процессоор дамжуулан зөвшөөрдөг вэ?"
+  expected_source_file: "L1-POL-14_Тохиргооны_удирдлагын_бодлого.txt"
+  should_refuse: false
+
+- id: 18
+  question: "Тохиргооны өөрчлөлтийг үйлдвэрлэлд нэвтрүүлэхийн өмнө хаана туршдаг вэ?"
+  expected_source_file: "L1-POL-14_Тохиргооны_удирдлагын_бодлого.txt"
+  should_refuse: false
+
+- id: 19
+  question: "Cloud resource-уудаас юуг тохиргооны бүртгэлд (CI) хамруулдаг вэ?"
+  expected_source_file: "L1-POL-14_Тохиргооны_удирдлагын_бодлого.txt"
+  should_refuse: false
+
+# --- L1-POL-15_Криптограф_ба_түлхүүрийн_удирдлагын_бодлого.txt ---
+- id: 20
+  question: "Криптографийн түлхүүрийн хувьд хамгийн багадаа ямар шифрлэлт ашиглах вэ?"
+  expected_source_file: "L1-POL-15_Криптограф_ба_түлхүүрийн_удирдлагын_бодлого.txt"
+  should_refuse: false
+
+- id: 21
+  question: "SSL нээлттэй түлхүүр хамгийн багадаа хэдэн бит байх вэ?"
+  expected_source_file: "L1-POL-15_Криптограф_ба_түлхүүрийн_удирдлагын_бодлого.txt"
+  should_refuse: false
+
+- id: 22
+  question: "Урьдчилан хуваалцсан түлхүүр хамгийн багадаа хэдэн тэмдэгт агуулсан байх вэ?"
+  expected_source_file: "L1-POL-15_Криптограф_ба_түлхүүрийн_удирдлагын_бодлого.txt"
+  should_refuse: false
+
+- id: 23
+  question: "SSL hash алгоритм хамгийн багадаа ямар байх вэ?"
+  expected_source_file: "L1-POL-15_Криптограф_ба_түлхүүрийн_удирдлагын_бодлого.txt"
+  should_refuse: false
+
+# --- L1-POL-17_Төгсгөлийн_төхөөрөмжийн_аюулгүй_байдлын_бодлого.txt ---
+- id: 24
+  question: "Critical болон high-risk patch-үүдийг хэдэн цагийн дотор суулгах вэ?"
+  expected_source_file: "L1-POL-17_Төгсгөлийн_төхөөрөмжийн_аюулгүй_байдлын_бодлого.txt"
+  should_refuse: false
+
+- id: 25
+  question: "Хувийн гар утас, таблетаас нэвтрэхэд ямар баталгаажуулалт заавал шаардлагатай вэ?"
+  expected_source_file: "L1-POL-17_Төгсгөлийн_төхөөрөмжийн_аюулгүй_байдлын_бодлого.txt"
+  should_refuse: false
+
+- id: 26
+  question: "Сэжигтэй outbound холболтуудыг яадаг вэ?"
+  expected_source_file: "L1-POL-17_Төгсгөлийн_төхөөрөмжийн_аюулгүй_байдлын_бодлого.txt"
+  should_refuse: false
+
+# --- L1-POL-18_Хортой_программ_хангамжийг_хянах_бодлого.txt ---
+- id: 27
+  question: "Вирусийн мэдээллийн санг хэдэн цагийн дотор автоматаар шинэчилдэг байх вэ?"
+  expected_source_file: "L1-POL-18_Хортой_программ_хангамжийг_хянах_бодлого.txt"
+  should_refuse: false
+
+- id: 28
+  question: "Хортой программын эсрэг системийн лог файлыг хэдэн хоног хадгалдаг вэ?"
+  expected_source_file: "L1-POL-18_Хортой_программ_хангамжийг_хянах_бодлого.txt"
+  should_refuse: false
+
+- id: 29
+  question: "Хортой программын эсрэг системийг ямар горимд ажиллуулдаг вэ?"
+  expected_source_file: "L1-POL-18_Хортой_программ_хангамжийг_хянах_бодлого.txt"
+  should_refuse: false
+
+# --- L1-POL-19_Сүлжээний_аюулгүй_байдлын_бодлого.txt ---
+- id: 30
+  question: "Сүлжээний нэмэлт шинэчлэлт болон эмзэг байдлын шалгалтыг ямар давтамжтай хийдэг вэ?"
+  expected_source_file: "L1-POL-19_Сүлжээний_аюулгүй_байдлын_бодлого.txt"
+  should_refuse: false
+
+- id: 31
+  question: "Сүлжээний архитектур ямар зарчим дээр суурилсан байх вэ?"
+  expected_source_file: "L1-POL-19_Сүлжээний_аюулгүй_байдлын_бодлого.txt"
+  should_refuse: false
+
+- id: 32
+  question: "Гадны сүлжээтэй холбогдох цэгүүдэд ямар төхөөрөмж ашигладаг вэ?"
+  expected_source_file: "L1-POL-19_Сүлжээний_аюулгүй_байдлын_бодлого.txt"
+  should_refuse: false
+
+# --- L1-POL-20_Бэлтгэн_нийлүүлэгчийн_удирдлагын_бодлого.txt ---
+- id: 33
+  question: "Нийлүүлэгчийг сонгохдоо ямар сертификат, мэргэжлийн чадавхыг харгалздаг вэ?"
+  expected_source_file: "L1-POL-20_Бэлтгэн_нийлүүлэгчийн_удирдлагын_бодлого.txt"
+  should_refuse: false
+
+- id: 34
+  question: "Гуравдагч талуудын үйл ажиллагаа ямар стандартын шаардлагыг хангаж байгааг гэрээнд тусгах вэ?"
+  expected_source_file: "L1-POL-20_Бэлтгэн_нийлүүлэгчийн_удирдлагын_бодлого.txt"
+  should_refuse: false
+
+- id: 35
+  question: "Бэлтгэн нийлүүлэгчийн удирдлагын гүйцэтгэлийг ямар үзүүлэлтээр хэмждэг вэ?"
+  expected_source_file: "L1-POL-20_Бэлтгэн_нийлүүлэгчийн_удирдлагын_бодлого.txt"
+  should_refuse: false
+
+# --- L1-POL-21_Мэдээлэл_дамжуулах_бодлого.txt ---
+- id: 36
+  question: "Аудитын зорилгоор мэдээлэлд хандахад ямар зарчимд үндэслэдэг вэ?"
+  expected_source_file: "L1-POL-21_Мэдээлэл_дамжуулах_бодлого.txt"
+  should_refuse: false
+
+- id: 37
+  question: "Мэдээлэл дамжуулах бодлогын гүйцэтгэлийг ямар үзүүлэлтээр хэмждэг вэ?"
+  expected_source_file: "L1-POL-21_Мэдээлэл_дамжуулах_бодлого.txt"
+  should_refuse: false
+
+# --- L1-POL-22_Хяналт__хэмжилтийн_бодлого.txt ---
+- id: 38
+  question: "Хяналт хэмжилтийн үр дүнг юутай харьцуулж үнэлдэг вэ?"
+  expected_source_file: "L1-POL-22_Хяналт__хэмжилтийн_бодлого.txt"
+  should_refuse: false
+
+- id: 39
+  question: "Хяналт, дүн шинжилгээ, хэмжилтийг ямар шаардлагыг баримтлан үнэлдэг вэ?"
+  expected_source_file: "L1-POL-22_Хяналт__хэмжилтийн_бодлого.txt"
+  should_refuse: false
+
+# --- L1-POL-27_Зохистой_хэрэглээний_бодлого.txt ---
+- id: 40
+  question: "Мэдээллийн аюулгүй байдлын зөрчлийг мэдсэн даруйд ажилтан хэнд мэдэгдэх вэ?"
+  expected_source_file: "L1-POL-27_Зохистой_хэрэглээний_бодлого.txt"
+  should_refuse: false
+
+- id: 41
+  question: "Компанийн хөрөнгөд ямар оюуны өмч багтдаг вэ?"
+  expected_source_file: "L1-POL-27_Зохистой_хэрэглээний_бодлого.txt"
+  should_refuse: false
+
+- id: 42
+  question: "Сэжигтэй үйлдэл эсхүл этгээдийг харсан даруйд ажилтан яах ёстой вэ?"
+  expected_source_file: "L1-POL-27_Зохистой_хэрэглээний_бодлого.txt"
+  should_refuse: false
+
+# --- L2-MAS-24_Мэдээллийн_Хөрөнгийн_Удирдлагын_Журам.txt ---
+- id: 43
+  question: "Мэдээллийн хөрөнгийг нууцлалын түвшнээр ямар ангилалд хуваадаг вэ?"
+  expected_source_file: "L2-MAS-24_Мэдээллийн_Хөрөнгийн_Удирдлагын_Журам.txt"
+  should_refuse: false
+
+- id: 44
+  question: "Мэдээллийн хөрөнгийг хэлбэр, хадгалах орчноор нь яаж ангилдаг вэ?"
+  expected_source_file: "L2-MAS-24_Мэдээллийн_Хөрөнгийн_Удирдлагын_Журам.txt"
+  should_refuse: false
+
+- id: 45
+  question: "Мэдээллийн ангиллын хамгаалалтын арга хэмжээг аль хавсралтаар зохицуулдаг вэ?"
+  expected_source_file: "L2-MAS-24_Мэдээллийн_Хөрөнгийн_Удирдлагын_Журам.txt"
+  should_refuse: false
+
+# --- L2-MAS-58_Мэдээллийн_Технологийн_Өөрчлөлтийн_Удирдлагын_Журам.txt ---
+- id: 46
+  question: "Өөрчлөлтийн хүсэлтийг хэн хүлээн авч бүртгэдэг вэ?"
+  expected_source_file: "L2-MAS-58_Мэдээллийн_Технологийн_Өөрчлөлтийн_Удирдлагын_Журам.txt"
+  should_refuse: false
+
+- id: 47
+  question: "Стандарт өөрчлөлт гэж ямар өөрчлөлтийг хэлэх вэ?"
+  expected_source_file: "L2-MAS-58_Мэдээллийн_Технологийн_Өөрчлөлтийн_Удирдлагын_Журам.txt"
+  should_refuse: false
+
+- id: 48
+  question: "Өөрчлөлт амжилтгүй болсон тохиолдолд юуны дагуу ажилладаг вэ?"
+  expected_source_file: "L2-MAS-58_Мэдээллийн_Технологийн_Өөрчлөлтийн_Удирдлагын_Журам.txt"
+  should_refuse: false
+
+# --- L2-MAS-59_Мэдээллийн_технологийн_ерөнхий_журам.txt ---
+- id: 49
+  question: "Мэдээлэл технологийн үйлчилгээний хүсэлтийг ямар ангиллаар тодорхойлдог вэ?"
+  expected_source_file: "L2-MAS-59_Мэдээллийн_технологийн_ерөнхий_журам.txt"
+  should_refuse: false
+
+- id: 50
+  question: "P1 буюу Critical зэрэглэл ямар тохиолдлыг хэлэх вэ?"
+  expected_source_file: "L2-MAS-59_Мэдээллийн_технологийн_ерөнхий_журам.txt"
+  should_refuse: false
+
+- id: 51
+  question: "Яаралтай P1, P2 тохиолдолд ямар сувгаар мэдэгддэг вэ?"
+  expected_source_file: "L2-MAS-59_Мэдээллийн_технологийн_ерөнхий_журам.txt"
+  should_refuse: false
+
+# --- L2-MAS-60_Эмзэг_байдлын_удирдлагын_журам.txt ---
+- id: 52
+  question: "Нэн чухал буюу Critical эмзэг байдлын CVSS оноо хэд вэ?"
+  expected_source_file: "L2-MAS-60_Эмзэг_байдлын_удирдлагын_журам.txt"
+  should_refuse: false
+
+- id: 53
+  question: "Эмзэг байдлын үнэлгээг жилд хэдэн удаа хийдэг вэ?"
+  expected_source_file: "L2-MAS-60_Эмзэг_байдлын_удирдлагын_журам.txt"
+  should_refuse: false
+
+- id: 54
+  question: "Дунд түвшний эмзэг байдлын CVSS оноо ямар хязгаартай вэ?"
+  expected_source_file: "L2-MAS-60_Эмзэг_байдлын_удирдлагын_журам.txt"
+  should_refuse: false
+
+# --- L3-SOP-42_Дотоод_сүлжээ_ашиглах_ерөнхий_журам.txt ---
+- id: 55
+  question: "Салбаруудад ямар галт ханын төхөөрөмж ашигладаг вэ?"
+  expected_source_file: "L3-SOP-42_Дотоод_сүлжээ_ашиглах_ерөнхий_журам.txt"
+  should_refuse: false
+
+- id: 56
+  question: "Шинээр VPN нээлгэх хүсэлтийг ямар хавсралтын дагуу гаргадаг вэ?"
+  expected_source_file: "L3-SOP-42_Дотоод_сүлжээ_ашиглах_ерөнхий_журам.txt"
+  should_refuse: false
+
+# --- L3-SOP-49_Лог_бүртгэлийн_журам.txt ---
+- id: 57
+  question: "Лог бүртгэлийг хаана хадгалж, нөөцлөх хуваарийг тодорхойлдог вэ?"
+  expected_source_file: "L3-SOP-49_Лог_бүртгэлийн_журам.txt"
+  should_refuse: false
+
+- id: 58
+  question: "Лог бүртгэлийн зөвшөөрөлгүй өөрчлөлтийг хэрхэн илрүүлдэг вэ?"
+  expected_source_file: "L3-SOP-49_Лог_бүртгэлийн_журам.txt"
+  should_refuse: false
+
+- id: 59
+  question: "Шинээр нэвтрүүлж буй мэдээллийн системд лог бүртгэлийн шаардлагыг хаана тусгах вэ?"
+  expected_source_file: "L3-SOP-49_Лог_бүртгэлийн_журам.txt"
+  should_refuse: false
+
+# --- L3-SOP-50_Биет_аюулгүй_байдлын_хяналтын_журам.txt ---
+- id: 60
+  question: "Байгууллагын хамгаалагдсан бүсэд хэрхэн нэвтэрдэг вэ?"
+  expected_source_file: "L3-SOP-50_Биет_аюулгүй_байдлын_хяналтын_журам.txt"
+  should_refuse: false
+
+- id: 61
+  question: "Карт уншигч төхөөрөмж ажиллахгүй тохиолдолд хэнд шалгуулж нэвтрэх вэ?"
+  expected_source_file: "L3-SOP-50_Биет_аюулгүй_байдлын_хяналтын_журам.txt"
+  should_refuse: false
+
+- id: 62
+  question: "Зөөврийн компьютерыг объектоос авч гарахад ямар шаардлага тавьдаг вэ?"
+  expected_source_file: "L3-SOP-50_Биет_аюулгүй_байдлын_хяналтын_журам.txt"
+  should_refuse: false
+
+# --- L3-SOP-52_Мэдээллийн_хөрөнгийн_устгалын_журам.txt ---
+- id: 63
+  question: "Мэдээллийн хөрөнгийн устгалыг ямар тохиолдолд заавал бүртгэдэг вэ?"
+  expected_source_file: "L3-SOP-52_Мэдээллийн_хөрөнгийн_устгалын_журам.txt"
+  should_refuse: false
+
+- id: 64
+  question: "Мэдээллийн хөрөнгийг устгасны дараа хэн процессыг баталгаажуулдаг вэ?"
+  expected_source_file: "L3-SOP-52_Мэдээллийн_хөрөнгийн_устгалын_журам.txt"
+  should_refuse: false
+
+- id: 65
+  question: "Мэдээллийн хөрөнгийн устгалын журмын зорилго юу вэ?"
+  expected_source_file: "L3-SOP-52_Мэдээллийн_хөрөнгийн_устгалын_журам.txt"
+  should_refuse: false
+
+# --- Must refuse: HR topics, removed from the corpus (were sample data) ---
+- id: 66
+  question: "Ажлын долоо хоногийн ажлын цаг хэд вэ?"
+  expected_source_file: null
+  should_refuse: true
+
+- id: 67
+  question: "Ээлжийн амралтыг хэдэн жил хүртэл хуримтлуулж болох вэ?"
+  expected_source_file: null
+  should_refuse: true
+
+- id: 68
+  question: "Гэр бүлийн гишүүн нас барвал хэдэн хоногийн цалинтай чөлөө олгодог вэ?"
+  expected_source_file: null
+  should_refuse: true
+
+- id: 69
+  question: "Ажил олгогч цалин хөлсийг хэзээ олгох үүрэгтэй вэ?"
+  expected_source_file: null
+  should_refuse: true
+
+- id: 70
+  question: "Илүү цагаар ажилласныг ямар байдлаар нөхөн олгодог вэ?"
+  expected_source_file: null
+  should_refuse: true
+
+# --- Must refuse: not covered by any ingested policy ---
+- id: 71
+  question: "Улаанбаатар хотын өнөөдрийн цаг агаар ямар байна?"
+  expected_source_file: null
+  should_refuse: true
+
+- id: 72
+  question: "Компанийн салбар байгууллагууд хаана байрладаг вэ?"
+  expected_source_file: null
+  should_refuse: true
+
+- id: 73
+  question: "Жирэмсний амралт хэдэн хоног вэ?"
+  expected_source_file: null
+  should_refuse: true
+
+- id: 74
+  question: "Тэтгэврийн даатгалын шимтгэлийн хувь хэд вэ?"
+  expected_source_file: null
+  should_refuse: true
+
+- id: 75
+  question: "Ажилтны урамшууллын бодлого ямар вэ?"
+  expected_source_file: null
+  should_refuse: true
+
+# --- Must refuse: plausible security vocabulary, but no such rule in the corpus ---
+- id: 76
+  question: "Мэдээллийн аюулгүй байдлын зөрчил гаргасан ажилтныг хэдэн төгрөгөөр торгодог вэ?"
+  expected_source_file: null
+  should_refuse: true
+
+- id: 77
+  question: "Компанийн кибер даатгалын нөхөн төлбөрийн хэмжээ хэд вэ?"
+  expected_source_file: null
+  should_refuse: true
+
+- id: 78
+  question: "Мэдээллийн аюулгүй байдлын багийн ажилтнуудын цалингийн сүлжээ ямар вэ?"
+  expected_source_file: null
+  should_refuse: true
