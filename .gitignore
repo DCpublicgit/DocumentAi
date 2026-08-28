@@ -12,3 +12,10 @@ ui/dist/
 # Real internal company policy documents — left out of version control
 # until the repo's visibility (public vs. private) is confirmed.
 policies/
+
+# Local scratch/debug output, not source
+Digital concept logo.jpg
+api2.json
+api_test.json
+scratch_scores.json
+verify_out.txt
