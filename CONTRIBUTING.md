@@ -45,6 +45,12 @@ low real volume. Pilot hosted on one small VM (Oracle A1 Always Free).
 - At real volume this is ~$20/mo in tokens; do NOT build cost-optimization
   machinery (model routing, caches) until measured traffic justifies it.
 - Flag anything that breaks at 10x docs or 10x QPS before finishing a phase.
+- **Paid API keys are now live (real credit, not a test budget).** AI agents must
+  NEVER run `app.eval`, `app.eval calibrate`, or any other command that calls
+  a paid LLM endpoint (Anthropic/OpenAI/Gemini/DeepSeek) on its own initiative
+  — only when the user explicitly asks for that specific run. Unit/integration
+  tests (`pytest`) are unaffected: they mock the LLM transport and never hit a
+  live API, so they're always safe to run freely.
 
 ## Workflow
 - Work ONE phase at a time. At the end of each phase, run the phase's acceptance
