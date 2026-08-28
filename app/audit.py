@@ -75,6 +75,7 @@ def build_record(
     finish_reason: str,
     latency_ms: int,
     cited_chunks: list[RetrievedChunk] | None = None,
+    preferred_clauses: dict[tuple[str, str, int], str] | None = None,
     request_id: uuid.UUID | None = None,
     asked_at: datetime | None = None,
 ) -> AuditRecord:
@@ -88,6 +89,13 @@ def build_record(
     (app.citations.extract_used_context), and the audit's
     `citations` column must reflect exactly what the employee was shown, not
     everything that merely cleared the score floor.
+
+    `preferred_clauses`, when given, is the same
+    (file_name, policy_version, chunk_index) -> clause map app.answering
+    builds via _resolve_used_context and hands to citation_fields() for the
+    client-facing citations — passed here too so this column's clause
+    matches what the employee actually saw, instead of format_citation()'s
+    default first-clause-in-chunk fallback.
     """
     chunks = result.chunks if result is not None else []
     if cited_chunks is None:
@@ -115,7 +123,13 @@ def build_record(
         citations=(
             []
             if refused
-            else list(dict.fromkeys(format_citation(c) for c in cited_chunks))
+            else list(dict.fromkeys(
+                format_citation(
+                    c,
+                    (preferred_clauses or {}).get((c.file_name, c.policy_version, c.chunk_index)),
+                )
+                for c in cited_chunks
+            ))
         ),
         llm_provider=settings.llm_provider,
         llm_model=settings.llm_model,

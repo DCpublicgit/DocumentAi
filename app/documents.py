@@ -14,7 +14,7 @@ import mimetypes
 from pathlib import Path
 
 from app.config import settings
-from app.ingest.naming import parse_filename
+from app.ingest.naming import parse_filename, version_sort_key
 
 # Extensions app.ingest.extract actually knows how to read — anything else in
 # POLICY_DIR is not a real corpus file (a stray .DS_Store, a half-copied
@@ -36,23 +36,30 @@ def find_document_path(file_name: str, policy_version: str | None = None) -> Pat
     a `Path` found by `iterdir()`, never `POLICY_DIR / user_input`).
 
     `policy_version`, when given, narrows to that exact version; omitted,
-    returns the first match — fine in practice, since retrieval only ever
-    surfaces `is_current=true` chunks, so a citation's document link almost
-    always names the current version.
+    returns the highest version among matches, per the SAME
+    `version_sort_key` app.ingest.loader/registry_loader use to derive
+    `is_current` — so this agrees with the DB's notion of "current" instead
+    of an alphabetical directory-listing order, which is not a version
+    ordering (e.g. "v10" would sort before "v2").
     """
     policy_dir = Path(settings.policy_dir)
     if not policy_dir.is_dir():
         return None
+    matches: list[tuple[str, Path]] = []
     for path in sorted(policy_dir.iterdir()):
         if not path.is_file() or path.suffix.lower() not in _SERVABLE_EXTENSIONS:
             continue
         parsed = parse_filename(path)
         if parsed.file_name != file_name:
             continue
-        if policy_version is not None and parsed.policy_version != policy_version:
+        if policy_version is not None:
+            if parsed.policy_version == policy_version:
+                return path
             continue
-        return path
-    return None
+        matches.append((parsed.policy_version, path))
+    if not matches:
+        return None
+    return max(matches, key=lambda m: (version_sort_key(m[0]), m[0]))[1]
 
 
 def guess_content_type(path: Path) -> str:

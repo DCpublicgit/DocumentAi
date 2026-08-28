@@ -239,6 +239,7 @@ async def _audit(
     outcome: AnswerOutcome,
     started: float,
     cited_chunks: list[RetrievedChunk] | None = None,
+    preferred_clauses: dict[tuple[str, str, int], str] | None = None,
 ) -> None:
     await write_audit(
         build_record(
@@ -250,6 +251,7 @@ async def _audit(
             finish_reason=outcome.finish_reason,
             latency_ms=int((time.perf_counter() - started) * 1000),
             cited_chunks=cited_chunks,
+            preferred_clauses=preferred_clauses,
         )
     )
 
@@ -306,7 +308,7 @@ async def answer_question(
         await _audit(
             question=question, answer=answer_text, result=result,
             refused=False, streamed=False, outcome=outcome, started=started,
-            cited_chunks=cited_chunks,
+            cited_chunks=cited_chunks, preferred_clauses=preferred_clauses,
         )
         return answer_text
 
@@ -451,5 +453,5 @@ async def stream_answer(
         await _audit(
             question=question, answer=answer_text, result=result,
             refused=False, streamed=True, outcome=outcome, started=started,
-            cited_chunks=cited_chunks,
+            cited_chunks=cited_chunks, preferred_clauses=preferred_clauses,
         )
