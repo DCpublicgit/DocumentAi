@@ -181,6 +181,38 @@ off-topic q28 scores 0.4150, so it refuses correctly at 0.5 and would
 > chosen specifically because 0.35 answers a wrong-document case. Both point
 > the same direction — 0.35 is very likely wrong — but neither is the
 > eval-backed decision this section calls for. Still open.
+>
+> **Update, 2026-08-26. Resolved — `SCORE_THRESHOLD=0.52`, eval-backed.**
+> `python -m app.eval calibrate` (new: `app/eval/calibrate.py`) scores every
+> question in the (now 78-question, see §3.2) eval set and sweeps candidate
+> thresholds against the `should_refuse` labels. Measured: relevant
+> questions score 0.4263–0.7739, off-topic-but-real questions score
+> 0.4150–0.5969 — genuine overlap (0.4263–0.5969), confirming this section's
+> own point that no threshold separates these perfectly on cosine alone.
+> 0.52 minimizes a false-pass-weighted error count (4/13 off-topic still
+> answered, 4/65 relevant refused) — a real, measured improvement over the
+> old 0.35 default, which let through 13/13 of the off-topic questions
+> (the gate was doing almost nothing). Concretely reproduced live: "Цалин
+> олгох өдөр хэзээ вэ?" scored 0.4842 — below 0.5969 (this corpus's off-topic
+> ceiling), so no cosine threshold below ~0.60 would have refused it reliably;
+> 0.52 does, at an acceptable cost in false refuses. Re-run `calibrate` after
+> any meaningful corpus or embedding-model change.
+>
+> **A separate, more urgent finding surfaced while diagnosing that query:**
+> §3.1's "core defect" analysis (2026-08-10) describes the corpus as "~92%
+> security documents (22 files) against 3 small HR documents (5–6 chunks
+> each)." As of this update, `policy_chunks` and `policy_documents` contain
+> **zero** HR documents — not de-ranked, not `is_current=false`, not present
+> in any version. `policies/` on disk has no HR-titled files either. The
+> 22–23 security documents are otherwise unchanged. This means the "HR
+> questions retrieve ISO-27001 chunks" defect §3.1 describes is no longer a
+> ranking problem at all — there is nothing HR-related left to rank. Whether
+> those 3 documents were deliberately removed (e.g. descoping this pilot to
+> security policy only) or lost some other way is unknown from what's
+> visible here — worth confirming deliberately, since §3.1's options
+> (metadata filtering, reranking, query expansion) all assume HR content
+> exists to be found. If it's gone for good, §1's "core defect" framing and
+> §3.1 both need rewriting around a content gap, not a precision defect.
 
 ### 3.4 Close the remaining retry gap
 `OpenAICompatibleClient` now retries 429/5xx with bounded jitter (Retry-After

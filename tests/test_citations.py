@@ -1,9 +1,9 @@
 from datetime import date
 
 from app.citations import (
+    citation_fields,
     extract_used_context,
     format_citation,
-    format_citation_list,
     format_context_block,
     is_used_marker_line,
 )
@@ -32,27 +32,6 @@ def test_format_citation_matches_exact_contract_format():
 def test_format_citation_handles_missing_section_and_date():
     citation = format_citation(_chunk(section=None, effective_date=None))
     assert citation == "[Чөлөө олгох журам.pdf · — · v3 (огноогүй)]"
-
-
-def test_format_citation_list_has_header_and_one_line_per_source():
-    chunks = [
-        _chunk(section="1.2", chunk_index=0),
-        _chunk(section="2", policy_version="v1", chunk_index=1),
-    ]
-    block = format_citation_list(chunks)
-
-    lines = block.splitlines()
-    assert lines[0] == "Эх сурвалж:"
-    assert len(lines) == 3
-    assert "1.2" in lines[1]
-    assert "2" in lines[2] and "v1" in lines[2]
-
-
-def test_format_citation_list_deduplicates_same_source():
-    chunks = [_chunk(chunk_index=0), _chunk(chunk_index=0)]
-    block = format_citation_list(chunks)
-
-    assert len(block.splitlines()) == 2  # header + one citation, not two
 
 
 def test_format_context_block_tags_file_section_version():
@@ -98,21 +77,6 @@ def test_format_citation_falls_back_to_first_clause_when_preferred_is_not_in_the
     citation = format_citation(chunk, preferred_clause="4.9")
 
     assert "Заалт 4.1: Сүлжээний шаардлага." in citation
-
-
-def test_format_citation_list_applies_preferred_clauses_per_chunk():
-    a = _chunk(
-        file_name="a.txt", chunk_index=0,
-        content="4.1. Сүлжээ. 4.2. VPN ашиглалтын шаардлага.",
-    )
-    b = _chunk(file_name="b.txt", chunk_index=1, content="9.1. Бусад.")
-    preferred = {("a.txt", "v3", 0): "4.2"}
-
-    block = format_citation_list([a, b], preferred)
-
-    assert "Заалт 4.2: VPN ашиглалтын шаардлага." in block
-    assert "Заалт 4.1" not in block
-    assert "Заалт 9.1" in block
 
 
 def test_format_citation_falls_back_to_section_when_no_clause_number():
@@ -235,3 +199,58 @@ def test_format_citation_strips_delimiter_characters_from_clause_description():
     assert "]" not in match.group(2)
     assert "(" not in match.group(2)
     assert ")" not in match.group(2)
+
+
+def test_citation_fields_derives_title_stripping_doc_prefix_and_underscores():
+    chunk = _chunk(file_name="L1-POL-04_Мэдээллийн_Аюулгүй_Байдлын_Бодлого.txt")
+    fields = citation_fields(1, chunk)
+
+    assert fields["docId"] == "L1-POL-04_Мэдээллийн_Аюулгүй_Байдлын_Бодлого.txt"
+    assert fields["title"] == "Мэдээллийн Аюулгүй Байдлын Бодлого"
+
+
+def test_citation_fields_falls_back_to_the_bare_filename_for_a_legacy_file():
+    """A file with no doc-number prefix (DATA_CONTRACT.md's "Registry
+    membership": legacy HR policies predate the ISO document set) still
+    gets a usable title, not an empty string or a crash."""
+    chunk = _chunk(file_name="Чөлөө_олгох_журам.pdf")
+    fields = citation_fields(1, chunk)
+
+    assert fields["title"] == "Чөлөө олгох журам"
+
+
+def test_citation_fields_highlights_the_matched_clause_range():
+    chunk = _chunk(content="4.1. Сүлжээ. 4.2. VPN ашиглалтын шаардлага. 4.3. Бусад.")
+
+    fields = citation_fields(1, chunk, preferred_clause="4.2")
+
+    assert fields["clause"] == "4.2"
+    assert fields["snippet"] == chunk.content
+    start, end = fields["charStart"], fields["charEnd"]
+    assert chunk.content[start:end] == "VPN ашиглалтын шаардлага."
+    # The highlighted range ends where clause 4.3 begins, not at the end of
+    # the whole chunk — this chunk has a THIRD clause after the cited one.
+    assert chunk.content[end:].strip().startswith("4.3.")
+
+
+def test_citation_fields_has_no_highlight_when_the_chunk_has_no_clause_number():
+    chunk = _chunk(content="Энгийн өгүүлбэр, заалтын дугаар агуулаагүй.")
+
+    fields = citation_fields(1, chunk)
+
+    assert fields["clause"] is None
+    assert fields["charStart"] is None
+    assert fields["charEnd"] is None
+    assert fields["snippet"] == chunk.content
+
+
+def test_citation_fields_carries_the_original_prompt_index_through():
+    chunk = _chunk()
+    fields = citation_fields(3, chunk)
+    assert fields["index"] == 3
+
+
+def test_citation_fields_chunk_id_is_the_policy_chunks_primary_key():
+    chunk = _chunk(file_name="a.txt", policy_version="v2", chunk_index=7)
+    fields = citation_fields(1, chunk)
+    assert fields["chunkId"] == "a.txt::v2::7"

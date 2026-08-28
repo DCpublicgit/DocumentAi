@@ -1,20 +1,21 @@
-import { groupCitationsByFile } from "../lib/parseCitations.js";
-
-// Renders the backend's parsed citation block as flat, non-interactive
-// lines — one per source file, clause numbers from that file's cited
-// chunks listed and deduped. section text, description, policy_version,
-// and effective_date stay in the parsed citation data (and the backend's
-// "Эх сурвалж:" text block) but are deliberately not shown here.
-export default function CitationPanel({ citations }) {
-  const groups = groupCitationsByFile(citations);
-
+// Each citation the backend returned (app.citations.citation_fields —
+// {index, docId, title, clause, snippet, charStart, charEnd}) rendered as
+// its own clickable button, opening the same drawer an inline "[N]" marker
+// in the answer text does (AssistantMarkdown.jsx) for that same citation —
+// two entry points into the same data, not two different things.
+export default function CitationPanel({ citations, onOpenCitation }) {
   return (
     <div className="citation-row" aria-label="Эх сурвалж">
-      {groups.map(({ file, clauseNumbers }) => (
-        <div key={file} className="citation-line">
-          {file}
-          {clauseNumbers.length > 0 && ` (Заалт ${clauseNumbers.join(", ")})`}
-        </div>
+      {citations.map((citation) => (
+        <button
+          key={citation.index}
+          type="button"
+          className="citation-line"
+          onClick={() => onOpenCitation(citation)}
+        >
+          [{citation.index}] {citation.title}
+          {citation.clause && ` (Заалт ${citation.clause})`}
+        </button>
       ))}
     </div>
   );

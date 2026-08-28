@@ -15,8 +15,10 @@ class OllamaClient:
         # See AnthropicClient.truncated — finish_reason == "length" here.
         self.truncated = False
 
-    def _payload(self, system: str, user: str, stream: bool) -> dict:
-        return {
+    def _payload(
+        self, system: str, user: str, stream: bool, temperature: float | None = None
+    ) -> dict:
+        payload = {
             "model": self._model,
             "max_tokens": self._max_tokens,
             "stream": stream,
@@ -25,12 +27,15 @@ class OllamaClient:
                 {"role": "user", "content": user},
             ],
         }
+        if temperature is not None:
+            payload["temperature"] = temperature
+        return payload
 
-    async def generate(self, system: str, user: str) -> str:
+    async def generate(self, system: str, user: str, temperature: float | None = None) -> str:
         async with httpx.AsyncClient(timeout=300) as client:
             response = await client.post(
                 f"{self._base_url}/chat/completions",
-                json=self._payload(system, user, stream=False),
+                json=self._payload(system, user, stream=False, temperature=temperature),
             )
             response.raise_for_status()
             data = response.json()

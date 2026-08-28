@@ -118,13 +118,14 @@ independent step by design (see `app/retrieve/query_expansion.py`) — so
 no such dependency — it's a local CPU cross-encoder, same footprint as
 BGE-M3 embedding.
 
-`SCORE_THRESHOLD` (0.35 default) was calibrated against raw cosine
-similarity. With `RERANK_ENABLED=true` the refusal gate switches to the
+`SCORE_THRESHOLD` (0.52, calibrated via `python -m app.eval calibrate` — see
+`Docs/DATA_CONTRACT.md` "SCORE_THRESHOLD calibration") is on the raw cosine
+similarity scale. With `RERANK_ENABLED=true` the refusal gate switches to the
 cross-encoder's score instead (different scale — see the comment in
 `app/retrieve/retriever.py`), so refusal accuracy may shift between the two
 runs for reasons unrelated to retrieval quality. If that shows up in the
-comparison, retune `SCORE_THRESHOLD` for the reranked path rather than
-reading it as a regression.
+comparison, retune `RERANK_SCORE_THRESHOLD` for the reranked path (the same
+`calibrate` command works there too) rather than reading it as a regression.
 
 ## Compare
 

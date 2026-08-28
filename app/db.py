@@ -118,6 +118,45 @@ CREATE INDEX IF NOT EXISTS answer_audit_asked_at_idx ON answer_audit (asked_at D
 """
 
 
+# Grain: one row per feedback SUBMISSION, not per message — a thumbs-down
+# followed by a detailed follow-up (app.feedback) produces two rows for the
+# same message_id, deliberately: both the bare "this was wrong" signal and
+# the elaborated reason are worth keeping, and neither is an edit of the
+# other (this table is append-only, same as answer_audit). Readers that need
+# "one verdict per message" (the admin view's document grouping) count
+# DISTINCT message_id, not rows — see app.feedback.negative_by_document.
+#
+# retrieved_chunk_ids stores "{file_name}::{policy_version}::{chunk_index}"
+# strings (app.citations.citation_fields' chunkId) rather than a join back to
+# policy_chunks: a chunk can be re-ingested or a file can disappear (see
+# Docs/PRODUCTION_READINESS.md's HR-corpus finding) without breaking what
+# feedback already recorded about it.
+#
+# No user column, same reasoning as answer_audit: the pilot has no auth
+# (PRODUCT.md). Add one nullable when SSO lands.
+CREATE_FEEDBACK_SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS feedback (
+    id                   uuid PRIMARY KEY,
+    received_at          timestamptz NOT NULL DEFAULT now(),
+    client_ts            timestamptz,
+    message_id           text NOT NULL,
+    conversation_id      text NOT NULL,
+    verdict              text NOT NULL CHECK (verdict IN ('up', 'down')),
+    question             text NOT NULL,
+    answer               text NOT NULL,
+    retrieved_chunk_ids  text[] NOT NULL DEFAULT '{}',
+    model                text NOT NULL,
+    latency_ms           integer,
+    reason               text,
+    reason_text          text
+);
+
+-- Feedback reads are "what happened recently" and "worst documents, verdict=down".
+CREATE INDEX IF NOT EXISTS feedback_received_at_idx ON feedback (received_at DESC);
+CREATE INDEX IF NOT EXISTS feedback_down_idx ON feedback (received_at DESC) WHERE verdict = 'down';
+"""
+
+
 async def get_pool() -> asyncpg.Pool:
     global _pool
     if _pool is None:
@@ -148,3 +187,9 @@ async def create_audit_schema() -> None:
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute(CREATE_AUDIT_SCHEMA_SQL)
+
+
+async def create_feedback_schema() -> None:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(CREATE_FEEDBACK_SCHEMA_SQL)

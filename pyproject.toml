@@ -34,6 +34,23 @@ include = ["app*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# app.db._pool is a process-lifetime singleton (created once, on whatever
+# event loop first calls get_pool(), and never recreated — matching
+# production, where the app has exactly one event loop for its whole life).
+# pytest-asyncio's default is a NEW event loop per async test function; once
+# a second test reused the cached pool from the first test's now-closed
+# loop, asyncpg raised "cannot perform operation: another operation is in
+# progress" (function-scoped tests: mismatched loop) or hung indefinitely
+# (session-scoped tests going through the FastAPI lifespan, per test_server.py's
+# TestClient runs). A session-scoped loop keeps every test on the one loop
+# the pool was actually created on, which is what a real long-lived
+# connection pool needs.
+asyncio_default_fixture_loop_scope = "session"
+# Fixture scope alone isn't enough — pytest-asyncio scopes fixtures and test
+# FUNCTIONS independently, and it's the test functions that actually call
+# get_pool(). Without this, each test function still ran on its own new
+# event loop even with the fixture scope above set to "session".
+asyncio_default_test_loop_scope = "session"
 
 # BGE-M3 runs on CPU only (docs/ARCHITECTURE.md); plain PyPI `torch` pulls
 # the CUDA build plus ~2.5GB of unused nvidia-* packages, so pin it to

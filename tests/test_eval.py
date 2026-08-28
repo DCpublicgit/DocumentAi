@@ -1,18 +1,4 @@
-from app.eval.runner import EvalResult, parse_cited_files, summarize
-
-
-def test_parse_cited_files_extracts_file_names_from_citation_block():
-    answer = (
-        "Ажлын долоо хоногийн ажлын цаг 40 цаг байна.\n\n"
-        "Эх сурвалж:\n"
-        "[Ажлын цагийн хуваарийн журам.txt · 2. Ажлын цаг · v1 (огноогүй)]"
-    )
-
-    assert parse_cited_files(answer) == ["Ажлын цагийн хуваарийн журам.txt"]
-
-
-def test_parse_cited_files_returns_empty_list_when_no_citation_header():
-    assert parse_cited_files("Уучлаарай, олдсонгүй.") == []
+from app.eval.runner import EvalResult, summarize
 
 
 def test_summarize_computes_accuracy_across_results():

@@ -41,16 +41,12 @@
   --error-border: #e3b9b9;
   --error-text: #7a3636;
   --focus-ring: #2f7cd6;
-  /* History panel: a second neutral layer, one step cooler and darker than
-     the conversation surface so the chat stays the lit part of the screen. */
-  --sidebar-bg: #edeff3;
-  --sidebar-item-hover: #e2e6ec;
-  --sidebar-item-active: #ffffff;
-  --danger-text: #a13a3a;
-  --danger-bg: #fbeeee;
+  /* Accent at low alpha — CitationDrawer's highlighted clause range. Plain
+     --chip-bg was too close to --surface-2 (the snippet's own background)
+     to read as a highlight at all. */
+  --highlight-bg: rgba(47, 124, 214, 0.22);
   --radius-sm: 8px;
   --radius-md: 12px;
-  --sidebar-width: 272px;
   --content-max: 800px;
   --shadow-sm:
     0 1px 2px rgba(23, 26, 31, 0.06),
@@ -86,11 +82,7 @@
     --error-bg: #2e1f1f;
     --error-border: #5a3232;
     --error-text: #e3a8a8;
-    --sidebar-bg: #101318;
-    --sidebar-item-hover: #1e232b;
-    --sidebar-item-active: #262c36;
-    --danger-text: #e79c9c;
-    --danger-bg: #2e1f1f;
+    --highlight-bg: rgba(91, 159, 230, 0.28);
     --shadow-sm:
       0 1px 2px rgba(0, 0, 0, 0.3),
       0 1px 1px rgba(0, 0, 0, 0.2);
@@ -102,6 +94,21 @@
 
 * {
   box-sizing: border-box;
+}
+
+/* Screen-reader-only: present in the accessibility tree, removed from
+   visual layout and painted nowhere — the standard clip-based recipe
+   (display:none/visibility:hidden would remove it from the tree too). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 html,
@@ -189,8 +196,17 @@ body {
   outline-offset: 2px;
 }
 
-.message-list {
+/* Wraps the scrollable list so the jump-to-bottom pill can anchor to its
+   bottom edge via position:absolute, independent of the list's own scroll
+   position. */
+.message-list-viewport {
+  position: relative;
   flex: 1;
+  min-height: 0;
+}
+
+.message-list {
+  height: 100%;
   overflow-y: auto;
   padding: 24px var(--content-inset);
   display: flex;
@@ -201,6 +217,37 @@ body {
 .message-list--empty {
   align-items: center;
   justify-content: center;
+}
+
+.jump-to-bottom {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px;
+  border: 1px solid var(--chip-border);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: transform 150ms ease, border-color 150ms ease;
+}
+
+.jump-to-bottom:hover {
+  transform: translateX(-50%) translateY(-2px);
+  border-color: var(--accent);
+}
+
+.jump-to-bottom:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .empty-state {
@@ -289,6 +336,22 @@ body {
   color: var(--error-text);
 }
 
+/* "Still working" signal on the assistant avatar — spins for the entire
+   turn (send through retrieval/generation), same idea as a typical chat assistant's
+   icon. The icon spins, not the avatar's circular background/border. */
+.avatar--spin svg {
+  animation: avatarSpin 1.1s linear infinite;
+}
+
+@keyframes avatarSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .assistant-content {
   flex: 1;
   min-width: 0;
@@ -301,46 +364,116 @@ body {
 .assistant-text {
   font-size: 0.9375rem;
   line-height: 1.6;
-  white-space: pre-wrap;
   word-break: break-word;
 }
 
-/* Typing indicator (shown only until the first token arrives) */
+/* Markdown content (AssistantMarkdown.jsx) — real block elements now, not
+   raw text, so line spacing is each element's own margin rather than
+   white-space:pre-wrap preserving literal newlines. */
 
-.typing-dots {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 8px 0;
+.assistant-text p,
+.assistant-text ul,
+.assistant-text ol,
+.assistant-text blockquote,
+.assistant-text pre,
+.assistant-text .assistant-table-scroll {
+  margin: 0 0 12px;
 }
 
-.typing-dots__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--text-secondary);
-  animation: typingDot 1.1s infinite ease-in-out;
+.assistant-text > :last-child {
+  margin-bottom: 0;
 }
 
-.typing-dots__dot:nth-child(2) {
-  animation-delay: 0.15s;
+.assistant-text strong {
+  font-weight: 600;
 }
 
-.typing-dots__dot:nth-child(3) {
-  animation-delay: 0.3s;
+.assistant-text ul,
+.assistant-text ol {
+  padding-left: 1.25em;
 }
 
-@keyframes typingDot {
-  0%,
-  60%,
-  100% {
-    opacity: 0.25;
-    transform: translateY(0);
-  }
-  30% {
-    opacity: 1;
-    transform: translateY(-3px);
-  }
+.assistant-text li {
+  margin-bottom: 4px;
+}
+
+.assistant-text li:last-child {
+  margin-bottom: 0;
+}
+
+.assistant-text blockquote {
+  padding-left: 12px;
+  border-left: 2px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.assistant-text code {
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 0.85em;
+  background: var(--surface-2);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.assistant-text pre {
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+}
+
+.assistant-text pre code {
+  background: none;
+  padding: 0;
+}
+
+.assistant-text a {
+  color: var(--accent-text);
+}
+
+.assistant-text a:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Tables scroll within their own box (many columns, long cell text) rather
+   than pushing the message column, or the page, sideways. */
+.assistant-text .assistant-table-scroll {
+  overflow-x: auto;
+}
+
+.assistant-text table {
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.assistant-text th,
+.assistant-text td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.assistant-text th {
+  font-weight: 600;
+  background: var(--surface-2);
+}
+
+/* Pipeline stage indicator (shown only until the first answer token
+   arrives, replacing the old three-dot "typing" animation). Same font
+   metrics as .assistant-text above so swapping the text between stages —
+   and the eventual handoff into the real answer once streaming starts —
+   never shifts the row's height; nowrap/ellipsis is a defensive cap in
+   case a stage label somehow doesn't fit the column width. */
+
+.stage-indicator {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .assistant-stopped-note {
@@ -350,7 +483,7 @@ body {
   font-style: italic;
 }
 
-/* Citation lines */
+/* Citation lines — each a button opening CitationDrawer for that citation */
 
 .citation-row {
   display: flex;
@@ -360,8 +493,153 @@ body {
 }
 
 .citation-line {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
   font-size: 0.8125rem;
   color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: color 120ms ease, text-decoration-color 120ms ease;
+}
+
+.citation-line:hover {
+  color: var(--accent-text);
+  text-decoration-color: currentColor;
+}
+
+.citation-line:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Inline "[N]" markers in the answer text (AssistantMarkdown.jsx /
+   remarkCitationMarkers.js) — small enough to sit inline with body text,
+   same interactive affordance as .citation-line. */
+
+.citation-marker {
+  padding: 0 1px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.8em;
+  font-weight: 600;
+  color: var(--accent-text);
+  cursor: pointer;
+  vertical-align: super;
+  line-height: 1;
+}
+
+.citation-marker:hover {
+  text-decoration: underline;
+}
+
+.citation-marker:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
+/* Citation drawer — slides in from the right; see CitationDrawer.jsx for
+   the Esc-closes / focus-return keyboard behavior this pairs with. */
+
+.citation-drawer__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(23, 26, 31, 0.45);
+  animation: scrimIn 200ms ease-out;
+}
+
+.citation-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 41;
+  width: min(420px, 100vw);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  overflow-y: auto;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  animation: drawerIn 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes drawerIn {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+.citation-drawer__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.citation-drawer__heading {
+  min-width: 0;
+}
+
+.citation-drawer__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.citation-drawer__clause {
+  margin: 4px 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.citation-drawer__close {
+  flex: none;
+}
+
+.citation-drawer__snippet {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.citation-drawer__snippet mark {
+  /* --chip-bg alone was nearly indistinguishable from the snippet's own
+     --surface-2 background (both very light, low-saturation blues) —
+     --highlight-bg (defined alongside the theme tokens up top) is the
+     accent color at low alpha, which reads clearly against either theme. */
+  background: var(--highlight-bg);
+  color: var(--text);
+  border-radius: 3px;
+  box-shadow: 0 0 0 2px var(--highlight-bg);
+}
+
+.citation-drawer__doc-link {
+  align-self: flex-start;
+  font-size: 0.8125rem;
+  color: var(--accent-text);
+}
+
+.citation-drawer__doc-link:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 /* Feedback buttons */
@@ -404,6 +682,142 @@ body {
   outline-offset: 2px;
 }
 
+/* 👎 follow-up ("Юу нь буруу байсан бэ?") — FeedbackButtons.jsx */
+
+.feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feedback-followup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 360px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.feedback-followup__prompt {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.feedback-followup__reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.feedback-followup__reason {
+  padding: 5px 10px;
+  border: 1px solid var(--chip-border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    color 120ms ease,
+    background 120ms ease;
+}
+
+.feedback-followup__reason:hover {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.feedback-followup__reason[aria-pressed="true"] {
+  background: var(--chip-bg);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.feedback-followup__reason:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.feedback-followup__text {
+  resize: none;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.feedback-followup__text:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.feedback-followup__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.feedback-followup__submit {
+  padding: 6px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.feedback-followup__submit:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.feedback-followup__submit:disabled {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+
+.feedback-followup__skip {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.feedback-followup__skip:hover {
+  background: var(--surface);
+}
+
+.feedback-followup__submit:focus-visible,
+.feedback-followup__skip:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.feedback-followup__thanks {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
 /* Refusal + error panels (sit inside an assistant-row, next to their avatar) */
 
 .refusal-panel,
@@ -421,6 +835,10 @@ body {
 }
 
 .error-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
   background: var(--error-bg);
   border: 1px solid var(--error-border);
   color: var(--error-text);
@@ -431,39 +849,31 @@ body {
   margin: 0;
 }
 
-/* Suggestion chips (starter prompts, empty state only) */
-
-.suggestion-chips {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 0 var(--content-inset) 12px;
-}
-
-.suggestion-chip {
-  flex: none;
-  padding: 8px 14px;
-  border: 1px solid var(--chip-border);
-  border-radius: 16px;
-  background: var(--chip-bg);
-  color: var(--accent-text);
+.error-panel__retry {
+  padding: 6px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-contrast);
   font: inherit;
   font-size: 0.8125rem;
-  white-space: nowrap;
+  font-weight: 500;
   cursor: pointer;
-  transition:
-    transform 150ms ease,
-    border-color 150ms ease;
 }
 
-.suggestion-chip:hover {
-  transform: translateY(-2px);
-  border-color: var(--accent);
+.error-panel__retry:hover:not(:disabled) {
+  background: var(--accent-hover);
 }
 
-.suggestion-chip:focus-visible {
+.error-panel__retry:disabled {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+
+.error-panel__retry:focus-visible {
   outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+  outline-offset: 1px;
 }
 
 /* Input */
@@ -552,443 +962,20 @@ body {
   color: var(--text-secondary);
 }
 
-/* History panel
-   ------------------------------------------------------------------
-   Collapsed state stays mounted so it can animate, and `visibility:
-   hidden` takes its controls out of the tab order — a collapsed panel
-   must not be a field of invisible focus stops. The visibility switch is
-   delayed by the slide duration on the way out and immediate on the way
-   in, so the panel is never hidden mid-animation. */
-
-.sidebar {
-  flex: none;
-  width: var(--sidebar-width);
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  padding: 12px 10px 8px;
-  background: var(--sidebar-bg);
-  border-right: 1px solid var(--border);
-  margin-left: calc(-1 * var(--sidebar-width));
-  visibility: hidden;
-  transition:
-    margin-left 200ms cubic-bezier(0.22, 1, 0.36, 1),
-    visibility 0s linear 200ms;
-}
-
-.sidebar--open {
-  margin-left: 0;
-  visibility: visible;
-  transition:
-    margin-left 200ms cubic-bezier(0.22, 1, 0.36, 1),
-    visibility 0s;
-}
-
-.sidebar__top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 2px 12px;
-}
-
-.sidebar__brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-}
-
-.sidebar__logo {
-  height: 24px;
-  width: auto;
-  object-fit: contain;
-  flex: none;
-}
-
-.sidebar__brand-name {
-  font-size: 0.875rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.sidebar__new-chat {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 9px 10px;
-  border: 1px solid var(--chip-border);
-  border-radius: var(--radius-sm);
-  background: var(--chip-bg);
-  color: var(--accent-text);
-  font: inherit;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    background 150ms ease,
-    border-color 150ms ease;
-}
-
-.sidebar__new-chat:hover {
-  background: var(--surface);
-  border-color: var(--accent);
-}
-
-.sidebar__new-chat:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-
-.sidebar__search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 10px 0 2px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text-secondary);
-}
-
-.sidebar__search:focus-within {
-  border-color: var(--accent);
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 1px;
-}
-
-.sidebar__search-field {
-  flex: 1;
-  min-width: 0;
-  padding: 8px 0;
-  border: none;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: 0.8125rem;
-}
-
-.sidebar__search-field:focus {
-  /* The ring lives on the wrapper so the icon sits inside it. */
-  outline: none;
-}
-
-.sidebar__search-field::placeholder {
-  color: var(--text-secondary);
-}
-
-.sidebar__history {
-  flex: 1;
-  overflow-y: auto;
-  padding: 6px 0 4px;
-}
-
-.sidebar__group + .sidebar__group {
-  margin-top: 16px;
-}
-
-.sidebar__group-label {
-  margin: 0 0 4px;
-  padding: 0 10px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.sidebar__group-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.sidebar__empty {
-  margin: 10px;
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  color: var(--text-secondary);
-}
-
-.sidebar__note {
-  margin: 0;
-  padding: 10px 10px 2px;
-  border-top: 1px solid var(--border);
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
-
-/* History row */
-
-.conversation-item {
-  position: relative;
-  display: flex;
-  align-items: center;
-  border-radius: var(--radius-sm);
-  transition: background 150ms ease;
-}
-
-.conversation-item:hover,
-.conversation-item--menu-open {
-  background: var(--sidebar-item-hover);
-}
-
-.conversation-item--active,
-.conversation-item--active:hover {
-  background: var(--sidebar-item-active);
-  box-shadow: var(--shadow-sm);
-}
-
-.conversation-item__open {
-  flex: 1;
-  min-width: 0;
-  padding: 8px 2px 8px 10px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 0.875rem;
-  text-align: left;
-  cursor: pointer;
-}
-
-.conversation-item--active .conversation-item__open {
-  color: var(--text);
-  font-weight: 500;
-}
-
-.conversation-item__open:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
-}
-
-.conversation-item__title {
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.conversation-item__trigger {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  margin-right: 4px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  opacity: 0;
-  transition:
-    opacity 150ms ease,
-    background 150ms ease,
-    color 150ms ease;
-}
-
-.conversation-item:hover .conversation-item__trigger,
-.conversation-item--menu-open .conversation-item__trigger,
-.conversation-item__trigger:focus-visible {
-  opacity: 1;
-}
-
-.conversation-item__trigger:hover {
-  background: var(--surface);
-  color: var(--text);
-}
-
-.conversation-item__trigger:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
-}
-
-@media (hover: none) {
-  /* Touch has no hover to reveal the row's actions. */
-  .conversation-item__trigger {
-    opacity: 1;
-  }
-}
-
-.conversation-item--renaming {
-  padding: 2px;
-}
-
-.conversation-item__rename {
-  width: 100%;
-  padding: 6px 8px;
-  border: 1px solid var(--accent);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 0.875rem;
-}
-
-.conversation-item__rename:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 1px;
-}
-
-/* Row actions menu — fixed so the scrolling history list cannot clip it */
-
-.conversation-menu {
-  position: fixed;
-  z-index: 30;
-  min-width: 190px;
-  padding: 5px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  box-shadow: var(--shadow-md);
-  animation: menuIn 140ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-@keyframes menuIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
-
-.conversation-menu__item {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  width: 100%;
-  padding: 8px 10px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: 0.8125rem;
-  text-align: left;
-  cursor: pointer;
-}
-
-.conversation-menu__item:hover {
-  background: var(--surface-2);
-}
-
-.conversation-menu__item--danger {
-  color: var(--danger-text);
-}
-
-.conversation-menu__item--danger:hover {
-  background: var(--danger-bg);
-}
-
-.conversation-menu__item:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
-}
-
-.conversation-menu__confirm {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 8px 8px 4px;
-}
-
-.conversation-menu__confirm-text {
-  margin: 0;
-  font-size: 0.8125rem;
-  line-height: 1.4;
-}
-
-.conversation-menu__confirm-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.conversation-menu__confirm-btn {
-  flex: 1;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 0.8125rem;
-  cursor: pointer;
-  transition:
-    background 150ms ease,
-    border-color 150ms ease;
-}
-
-.conversation-menu__confirm-btn:hover {
-  background: var(--surface-2);
-}
-
-.conversation-menu__confirm-btn--danger {
-  border-color: var(--error-border);
-  background: var(--danger-bg);
-  color: var(--danger-text);
-}
-
-.conversation-menu__confirm-btn:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 1px;
-}
-
-/* Overlay behavior below the breakpoint (SIDEBAR_BREAKPOINT_PX) */
-
-.shell__scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  background: rgba(23, 26, 31, 0.45);
-  animation: scrimIn 200ms ease-out;
-}
-
-@keyframes scrimIn {
-  from {
-    opacity: 0;
-  }
-}
-
-@media (max-width: 859.98px) {
-  .sidebar {
-    position: fixed;
-    inset-block: 0;
-    left: 0;
-    z-index: 25;
-    width: min(var(--sidebar-width), 86vw);
-    height: auto;
-    margin-left: 0;
-    transform: translateX(-100%);
-    box-shadow: var(--shadow-md);
-    transition:
-      transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
-      visibility 0s linear 220ms;
-  }
-
-  .sidebar--open {
-    transform: translateX(0);
-    transition:
-      transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
-      visibility 0s;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .sidebar,
-  .sidebar--open {
-    transition: visibility 0s;
+  .citation-drawer__scrim {
+    animation: none;
   }
 
-  .conversation-menu,
-  .shell__scrim {
+  .jump-to-bottom {
+    transition: none;
+  }
+
+  .citation-drawer {
+    animation: none;
+  }
+
+  .avatar--spin svg {
     animation: none;
   }
 }

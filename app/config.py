@@ -20,7 +20,12 @@ class Settings(BaseSettings):
     embedding_model: str = Field(alias="EMBEDDING_MODEL")
     database_url: str = Field(alias="DATABASE_URL")
     top_k: int = Field(default=5, alias="TOP_K")
-    score_threshold: float = Field(default=0.35, alias="SCORE_THRESHOLD")
+    # Calibrated 2026-08-26 via `python -m app.eval calibrate` against the
+    # 78-question eval set: minimizes a false-pass-weighted error count
+    # (Docs/DATA_CONTRACT.md "Retrieval" — false passes cost more than false
+    # refuses here). Re-run that command after any meaningful corpus or
+    # embedding-model change; this is a measured value, not a guess.
+    score_threshold: float = Field(default=0.52, alias="SCORE_THRESHOLD")
     policy_dir: str = Field(alias="POLICY_DIR")
     rerank_score_threshold: float = Field(default=0.5, alias="RERANK_SCORE_THRESHOLD")
     rerank_enabled: bool = Field(default=True, alias="RERANK_ENABLED")
@@ -51,6 +56,15 @@ class Settings(BaseSettings):
     llm_retry_max_delay: float = Field(default=30.0, alias="LLM_RETRY_MAX_DELAY")
     clause_description_max_chars: int = Field(default=80, alias="CLAUSE_DESCRIPTION_MAX_CHARS")
     gibberish_max_consonant_run: int = Field(default=5, alias="GIBBERISH_MAX_CONSONANT_RUN")
+    # Own provider/model, same reasoning as query expansion above: condensing
+    # a followup into a standalone query is orthogonal to which model
+    # generates the final answer, and must not require an Anthropic key on
+    # an Ollama-only deployment.
+    query_rewrite_enabled: bool = Field(default=True, alias="QUERY_REWRITE_ENABLED")
+    query_rewrite_provider: str = Field(default="anthropic", alias="QUERY_REWRITE_PROVIDER")
+    query_rewrite_model: str = Field(
+        default="claude-haiku-4-5-20251001", alias="QUERY_REWRITE_MODEL"
+    )
 
 
 settings = Settings()

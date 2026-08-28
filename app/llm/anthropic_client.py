@@ -13,12 +13,14 @@ class AnthropicClient:
         # builds a fresh client per request.
         self.truncated = False
 
-    async def generate(self, system: str, user: str) -> str:
+    async def generate(self, system: str, user: str, temperature: float | None = None) -> str:
+        kwargs = {} if temperature is None else {"temperature": temperature}
         response = await self._client.messages.create(
             model=self._model,
             max_tokens=self._max_tokens,
             system=system,
             messages=[{"role": "user", "content": user}],
+            **kwargs,
         )
         self.truncated = response.stop_reason == "max_tokens"
         return "".join(block.text for block in response.content if block.type == "text")

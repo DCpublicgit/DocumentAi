@@ -1,8 +1,8 @@
-export default function SearchIcon() {
+export default function CloseIcon() {
   return (
     <svg
-      width="15"
-      height="15"
+      width="18"
+      height="18"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -11,8 +11,7 @@ export default function SearchIcon() {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <circle cx="10.5" cy="10.5" r="6.5" />
-      <path d="M15.5 15.5L20 20" />
+      <path d="M6 6L18 18M18 6L6 18" />
     </svg>
   );
 }

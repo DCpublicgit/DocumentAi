@@ -109,8 +109,9 @@ def build_record(
         # chunks' citation lines here would make the audit assert that the bot
         # cited sources it never showed. What retrieval found is already in
         # retrieved_chunks; these two columns answer different questions.
-        # Deduplicated on the rendered line to match format_citation_list,
-        # which collapses repeats from the same section.
+        # Deduplicated on the rendered line — the same source cited via two
+        # different chunks (e.g. two clauses in the same section) collapses
+        # to one entry here, same as it always has.
         citations=(
             []
             if refused

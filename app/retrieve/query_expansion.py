@@ -22,8 +22,21 @@ import logging
 
 from app.config import settings
 from app.llm import build_client
+from app.retrieve.rephrase_cache import BoundedCache
 
 logger = logging.getLogger(__name__)
+
+# Keyed on everything that actually determines the output — a settings
+# change (e.g. a different QUERY_EXPANSION_MODEL) must not reuse a cached
+# rephrasing produced under the old one. See rephrase_cache.py.
+_cache = BoundedCache()
+
+
+def clear_cache() -> None:
+    """Test-only: tests reuse question text across different
+    settings/mocked providers within the same process, which a shared cache
+    would otherwise leak between them."""
+    _cache.clear()
 
 _SYSTEM_PROMPT = """Та компанийн бодлогын чатботын хайлтад туслах систем юм.
 Өгөгдсөн асуултыг өөр өөр үг хэллэгээр яг {n} удаа дахин найруул.
@@ -58,6 +71,16 @@ async def expand_query(question: str) -> list[str]:
     if not settings.query_expansion_enabled:
         return [question]
 
+    cache_key = (
+        question,
+        settings.query_expansion_provider,
+        settings.query_expansion_model,
+        settings.query_expansion_n,
+    )
+    cached = _cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     try:
         client = build_client(
             settings.query_expansion_provider,
@@ -65,7 +88,15 @@ async def expand_query(question: str) -> list[str]:
             setting_name="QUERY_EXPANSION_PROVIDER",
         )
         system = _SYSTEM_PROMPT.format(n=settings.query_expansion_n)
-        response = await client.generate(system, question)
+        # temperature=0: this call decides what gets embedded and searched,
+        # never text an employee reads — the same question should expand the
+        # same way every time, not resample a different rephrasing (and
+        # therefore a different retrieval score) on every request. See
+        # LLMClient.generate's docstring. Doesn't fully get there on its
+        # own (hosted providers aren't bit-exact even at temperature=0) —
+        # the cache above is what actually closes the gap; see
+        # rephrase_cache.py.
+        response = await client.generate(system, question, temperature=0)
     except Exception:
         logger.warning(
             "query expansion failed (provider=%s model=%s) — falling back to the "
@@ -77,4 +108,6 @@ async def expand_query(question: str) -> list[str]:
         return [question]
 
     rephrasings = [line.strip() for line in response.strip().splitlines() if line.strip()]
-    return [question] + rephrasings[: settings.query_expansion_n]
+    result = [question] + rephrasings[: settings.query_expansion_n]
+    _cache.set(cache_key, result)  # only a real result is cached, never the fallback
+    return result

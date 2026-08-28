@@ -83,10 +83,43 @@ never leaves the register half-written.
 - Refusal gate: compare the top score against the threshold for ITS scale —
   `RERANK_ENABLED=true` → cross-encoder relevance vs `RERANK_SCORE_THRESHOLD`
   (default 0.5); `RERANK_ENABLED=false` → cosine similarity vs `SCORE_THRESHOLD`
-  (default 0.35). Never share one value across both: the reranker's score is
-  sigmoid-squashed and strongly bimodal, cosine is a narrow mid-range band, so
-  one number cannot mean the same strictness in both modes. Both defaults are
-  starting points pending Phase 5 calibration.
+  (default **0.52**, calibrated — see below). Never share one value across
+  both: the reranker's score is sigmoid-squashed and strongly bimodal,
+  cosine is a narrow mid-range band, so one number cannot mean the same
+  strictness in both modes.
+- **`SCORE_THRESHOLD` calibration.** `python -m app.eval calibrate`
+  (`app/eval/calibrate.py`) retrieves (no generation, no LLM cost) every
+  question in `app/eval/questions.yaml`, sweeps candidate thresholds against
+  the `should_refuse` labels, and reports the count that minimizes a
+  WEIGHTED error total — a false pass (answering from irrelevant policy
+  content) counts double a false refuse, since CONTRIBUTING.md rule 1 calls
+  refusing "correct behavior, not a failure," not an equal-cost error to a
+  wrong answer. Measured 2026-08-26 (RERANK_ENABLED=false, this corpus):
+  relevant questions scored 0.4263–0.7739, off-topic-but-real questions
+  scored 0.4150–0.5969 — the two ranges genuinely overlap (0.4263–0.5969),
+  so NO threshold value separates them perfectly; 0.52 minimizes total
+  weighted error (4/13 off-topic still answered, 4/65 relevant refused) vs.
+  the old, uncalibrated 0.35 default (13/13 off-topic answered, i.e. the
+  gate did almost nothing). Re-run after any meaningful corpus or
+  embedding-model change — this value is measured, not assumed to hold.
+- **Standalone query rewriting (multi-turn).** Runs BEFORE query expansion,
+  as the first step of retrieval proper. `/v1/chat/completions` now accepts
+  the full conversation, not just the newest message (`app.server._split_history`
+  splits it into `history` — everything before the current turn — and
+  `question`, the current turn itself). `app.retrieve.query_rewrite.rewrite_standalone_query`
+  condenses `question` + `history` into one context-free query — a followup
+  like "Тэгвэл цалинтай юу?" ("Is it paid, then?") only means anything next
+  to the turn before it, and embedding/FTS see nothing but the followup's
+  own words otherwise. Retrieval, AND the "Асуулт:" line the generation
+  model itself sees, both use the REWRITTEN query; `answer_audit.question`
+  still records the raw turn the employee actually typed — the two can
+  differ, and today that's only visible in the `query_rewritten` field of
+  the structured timing log (`app/timing.py`), not a column of its own; a
+  genuine audit-trail column is future work, not done here.
+  QUERY_REWRITE_ENABLED/PROVIDER/MODEL (own provider, same reasoning as
+  query expansion's below) gate and configure it. Same fail-open posture as
+  everything else on this path: no history (first turn) or any rewrite
+  failure returns the original question unchanged, never blocks the request.
 - **Query expansion drift.** Each rephrasing (`app/retrieve/query_expansion.py`)
   is a fresh, temperature-sampled LLM generation — not deterministic like the
   original question. RRF sums scores per exact `(file_name, policy_version,
@@ -120,16 +153,18 @@ never leaves the register half-written.
   cite but reject"; `answer_audit.citations` reflects `cited_chunks`, i.e.
   exactly what the employee was shown.
 
-**Gibberish gate.** Before any of the above runs — before query expansion,
-embedding, FTS, or reranking — `app.query_guard.is_gibberish` checks the raw
-question for input that never had linguistic structure to begin with
-(keyboard mashing, e.g. "цйбйцанжуа", "kjshdf lkjashdf"). A hit skips
-retrieval entirely and returns the refusal string directly
+**Gibberish gate.** Before any of the above runs — before standalone query
+rewriting, query expansion, embedding, FTS, or reranking —
+`app.query_guard.is_gibberish` checks the RAW question (never the rewritten
+one) for input that never had linguistic structure to begin with (keyboard
+mashing, e.g. "цйбйцанжуа", "kjshdf lkjashdf"). A hit skips retrieval
+entirely and returns the refusal string directly
 (`app.answering._retrieve_and_prepare`), so junk input costs microseconds
-instead of an LLM query-expansion call, an embedding call, and a DB round
-trip — the concern this exists for is latency on obviously pointless input,
-not just correctness. `app.audit.build_record`'s `result=None` case is this
-path: there is no `RetrievalResult` because retrieval never ran.
+instead of an LLM query-rewrite call, an LLM query-expansion call, an
+embedding call, and a DB round trip — the concern this exists for is latency
+on obviously pointless input, not just correctness. `app.audit.build_record`'s
+`result=None` case is this path: there is no `RetrievalResult` because
+retrieval never ran.
 
 This is NOT a substitute for the refusal gate above, and deliberately narrow:
 it only catches input with no linguistic structure in ANY script (a run of
@@ -240,16 +275,24 @@ reported refusal_accuracy describes shipped behavior.
 - Do NOT copy sentences verbatim from the context. Synthesize and paraphrase
   in natural Mongolian — explain the policy the way a colleague would, not
   the way the document states it.
-- Structure every non-refusal answer as plain text (no markdown — the UI
-  renders raw text, it does not parse `**`/`#`), two labeled parts:
+- Structure every non-refusal answer as Markdown (the UI renders it via
+  `react-markdown` + `remark-gfm`/`remark-breaks`, restricted to an
+  allowlist — see `ui/src/components/AssistantMarkdown.jsx` — so any
+  construct outside that list, e.g. a `#` heading or an image, just
+  degrades to its own text content, never breaks), two labeled parts with a
+  blank line between the bold label and what follows it (plain "\n" alone
+  renders as a soft break inside the SAME block, not a new one — the label
+  and its content would run together on one line without it):
 
-  Товч хариулт:
+  **Товч хариулт**
+
   1-2 sentence direct answer to the question.
 
-  Дэлгэрэнгүй тайлбар:
-  3-6 short `- `-prefixed bullet points covering the relevant rules,
-  conditions, and exceptions found in the context. Each bullet is a
-  paraphrased point, not a copied sentence.
+  **Дэлгэрэнгүй тайлбар**
+
+  3-6 short `- `-prefixed bullet points (a real Markdown list) covering the
+  relevant rules, conditions, and exceptions found in the context. Each
+  bullet is a paraphrased point, not a copied sentence.
 
 - When a context chunk contains a clause number inline (e.g. "4.1.2."),
   cite it in the "Эх сурвалж" list as `Заалт {number}: {short description}`
@@ -294,7 +337,8 @@ DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
 EMBEDDING_MODEL=BAAI/bge-m3
 DATABASE_URL=postgresql://policy:policy@postgres:5432/policy
 TOP_K=5
-SCORE_THRESHOLD=0.35                        # gate when RERANK_ENABLED=false (cosine scale)
+SCORE_THRESHOLD=0.52                        # gate when RERANK_ENABLED=false (cosine scale) — calibrated,
+                                             # see "SCORE_THRESHOLD calibration" above
 POLICY_DIR=/app/policies
 RERANK_ENABLED=true
 RERANK_MODEL=BAAI/bge-reranker-v2-m3       # multilingual, local, pairs with BGE-M3
@@ -308,6 +352,10 @@ QUERY_EXPANSION_MODEL=claude-haiku-4-5-20251001   # verify current id at docs.cl
 QUERY_EXPANSION_N=1                         # additional rephrasings generated per question — kept low
                                              # to bound query-expansion drift, see "Query expansion
                                              # drift" above
+QUERY_REWRITE_ENABLED=true                  # condense a followup + prior turns into a standalone query
+                                             # before retrieval, see "Standalone query rewriting" above
+QUERY_REWRITE_PROVIDER=anthropic            # own provider, same reasoning as QUERY_EXPANSION_PROVIDER
+QUERY_REWRITE_MODEL=claude-haiku-4-5-20251001     # verify current id at docs.claude.com
 WARM_UP_MODELS_ENABLED=true                 # load BGE-M3 + reranker at startup, not on the first user question
 LLM_MAX_RETRIES=5                           # retries on transient upstream failures (429 / 5xx) per LLM call
 LLM_RETRY_BASE_DELAY=1.0                    # seconds; exponential backoff with full jitter, Retry-After wins

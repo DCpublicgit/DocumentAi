@@ -6,6 +6,16 @@ from typing import AsyncIterator, Protocol
 
 
 class LLMClient(Protocol):
-    async def generate(self, system: str, user: str) -> str: ...
+    # temperature=None leaves the provider's own default in place (the main
+    # answer generation path never passes it — that response should stay
+    # naturally worded, not deterministic). Query rewriting/expansion pass
+    # 0 explicitly: those calls only decide what gets embedded and searched,
+    # never anything an employee reads, and their whole point is to be the
+    # SAME standalone query every time the same question is asked — sampling
+    # a different rephrasing on every request measurably shifts retrieval's
+    # top_score run to run, occasionally enough to flip a borderline
+    # question between answering and refusing (found via
+    # app/eval/questions.yaml repeat-run testing).
+    async def generate(self, system: str, user: str, temperature: float | None = None) -> str: ...
 
     def stream(self, system: str, user: str) -> AsyncIterator[str]: ...

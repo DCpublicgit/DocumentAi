@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 
@@ -195,3 +197,76 @@ async def test_stream_retries_a_429_before_any_token_is_emitted(fast_retries, tr
 
     assert tokens == ["хариу"]
     assert len(calls) == 2
+
+
+# temperature — deterministic generation for query rewrite/expansion
+# (app/retrieve/query_rewrite.py, app/retrieve/query_expansion.py), left at
+# the provider default (None) for the main answer. See LLMClient.generate's
+# docstring for why.
+
+
+async def test_generate_sends_temperature_when_given(transport):
+    queued, calls = transport
+    queued.append(httpx.Response(200, json=_OK_BODY))
+
+    await _client().generate("sys", "user", temperature=0)
+
+    assert json.loads(calls[0].content)["temperature"] == 0
+
+
+async def test_generate_omits_temperature_when_not_given(transport):
+    queued, calls = transport
+    queued.append(httpx.Response(200, json=_OK_BODY))
+
+    await _client().generate("sys", "user")
+
+    assert "temperature" not in json.loads(calls[0].content)
+
+
+def test_ollama_payload_includes_temperature_when_given():
+    payload = OllamaClient("m", "http://x", 128)._payload(
+        "sys", "user", stream=False, temperature=0
+    )
+    assert payload["temperature"] == 0
+
+
+def test_ollama_payload_omits_temperature_when_not_given():
+    payload = OllamaClient("m", "http://x", 128)._payload("sys", "user", stream=False)
+    assert "temperature" not in payload
+
+
+class _FakeAnthropicMessages:
+    """Records the kwargs AnthropicClient.generate passed to the real SDK
+    call, without a network round trip or a real API key."""
+
+    def __init__(self):
+        self.captured = None
+
+    async def create(self, **kwargs):
+        self.captured = kwargs
+
+        class _Response:
+            stop_reason = "end_turn"
+            content = []
+
+        return _Response()
+
+
+async def test_anthropic_generate_sends_temperature_when_given():
+    client = AnthropicClient("m", "k", 128)
+    fake_messages = _FakeAnthropicMessages()
+    client._client.messages = fake_messages
+
+    await client.generate("sys", "user", temperature=0)
+
+    assert fake_messages.captured["temperature"] == 0
+
+
+async def test_anthropic_generate_omits_temperature_when_not_given():
+    client = AnthropicClient("m", "k", 128)
+    fake_messages = _FakeAnthropicMessages()
+    client._client.messages = fake_messages
+
+    await client.generate("sys", "user")
+
+    assert "temperature" not in fake_messages.captured

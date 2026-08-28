@@ -3,6 +3,3 @@
 // identical; this is a compliance-critical string comparison, not prose.
 export const REFUSAL_STRING =
   "Уучлаарай, энэ асуултын хариултыг компанийн бодлогын баримт бичгээс олж чадсангүй.";
-
-// Header the backend prepends to its citation block (app/citations.py).
-export const CITATION_HEADER = "Эх сурвалж:";

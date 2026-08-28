@@ -1,14 +1,13 @@
-import { useState } from "react";
 import SendIcon from "./icons/SendIcon.jsx";
 import StopIcon from "./icons/StopIcon.jsx";
 
-export default function ChatInput({ onSend, onStop, disabled }) {
-  const [value, setValue] = useState("");
-
+// Controlled by App.jsx (not local state) so a send that fails before the
+// request leaves the browser can hand the question back into this field
+// instead of it being gone for good — see App.jsx's sendMessage.
+export default function ChatInput({ value, onChange, onSend, onStop, disabled }) {
   const handleSubmit = () => {
     if (!value.trim() || disabled) return;
     onSend(value);
-    setValue("");
   };
 
   const handleKeyDown = (event) => {
@@ -24,7 +23,7 @@ export default function ChatInput({ onSend, onStop, disabled }) {
         <textarea
           className="chat-input__field"
           value={value}
-          onChange={(event) => setValue(event.target.value)}
+          onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Асуултаа бичнэ үү..."
           disabled={disabled}

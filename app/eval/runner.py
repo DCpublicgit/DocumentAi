@@ -8,7 +8,6 @@ LLM_MODEL combination (see docs/EVAL_RUNBOOK.md for the V1/V2/V3 protocol).
 
 import csv
 import json
-import re
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -16,11 +15,8 @@ from pathlib import Path
 
 import yaml
 
-from app.answering import answer_question
+from app.answering import AnswerOutcome, answer_question
 from app.contract import is_refusal
-
-CITATION_HEADER = "Эх сурвалж:"
-_CITATION_LINE = re.compile(r"^\[(.+?) · (.+?) · (.+?) \((.+?)\)\]$")
 
 CSV_FIELDS = [
     "id",
@@ -65,27 +61,13 @@ def load_cases(path: Path) -> list[EvalCase]:
     return [EvalCase(**item) for item in raw]
 
 
-def parse_cited_files(answer: str) -> list[str]:
-    """Extracts file_name values from the "Эх сурвалж:" block per the exact
-    citation format in docs/DATA_CONTRACT.md. Mirrors
-    ui/src/lib/parseCitations.js's CITATION_LINE regex."""
-    if CITATION_HEADER not in answer:
-        return []
-    block = answer.split(CITATION_HEADER, 1)[1]
-    files = []
-    for line in block.strip().splitlines():
-        match = _CITATION_LINE.match(line.strip())
-        if match:
-            files.append(match.group(1))
-    return files
-
-
 async def run_case(case: EvalCase) -> EvalResult:
     start = time.monotonic()
     error = ""
     answer = ""
+    outcome = AnswerOutcome()
     try:
-        answer = await answer_question(case.question)
+        answer = await answer_question(case.question, outcome=outcome)
     except Exception as exc:  # noqa: BLE001 — eval must record, not crash, on a bad question
         error = f"{type(exc).__name__}: {exc}"
     latency = time.monotonic() - start
@@ -96,7 +78,10 @@ async def run_case(case: EvalCase) -> EvalResult:
     actual_refused = is_refusal(answer)
     refusal_correct = actual_refused == case.should_refuse
 
-    cited_files = parse_cited_files(answer)
+    # Structured citations (app.citations.citation_fields), not text-parsed —
+    # answer_question no longer appends a citation block to the returned
+    # string at all (see AnswerOutcome.citations' docstring).
+    cited_files = [c["docId"] for c in outcome.citations]
     citation_correct = (
         True if case.should_refuse else case.expected_source_file in cited_files
     )
