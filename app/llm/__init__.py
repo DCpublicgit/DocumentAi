@@ -14,7 +14,24 @@ _OPENAI_COMPATIBLE_PROVIDERS = {
 }
 
 
+# Which pipeline step a client serves, derived from the setting that chose its
+# provider. Recorded with every call (app.usage) so a mixed-model run can be
+# costed per step.
+_ROLE_BY_SETTING = {
+    "LLM_PROVIDER": "answer",
+    "QUERY_EXPANSION_PROVIDER": "expansion",
+    "QUERY_REWRITE_PROVIDER": "rewrite",
+}
+
+
 def build_client(provider: str, model: str, setting_name: str = "LLM_PROVIDER") -> LLMClient:
+    client = _build_client(provider, model, setting_name)
+    client.provider = provider
+    client.role = _ROLE_BY_SETTING.get(setting_name, "answer")
+    return client
+
+
+def _build_client(provider: str, model: str, setting_name: str) -> LLMClient:
     """Builds a client for an explicit provider/model pair. Generation uses
     get_client() below; query expansion runs on its own provider setting (see
     app/retrieve/query_expansion.py), so the dispatch lives here once rather

@@ -2,8 +2,21 @@ from typing import AsyncIterator
 
 from anthropic import AsyncAnthropic
 
+from app import usage
+
 
 class AnthropicClient:
+    # Overwritten by app.llm.build_client.
+    provider = "anthropic"
+    role = "answer"
+
+    def _record_usage(self, raw) -> None:
+        if raw is not None:
+            usage.record(
+                self.role, self.provider, self._model,
+                int(raw.input_tokens or 0), int(raw.output_tokens or 0),
+            )
+
     def __init__(self, model: str, api_key: str, max_tokens: int) -> None:
         self._model = model
         self._max_tokens = max_tokens
@@ -23,6 +36,7 @@ class AnthropicClient:
             **kwargs,
         )
         self.truncated = response.stop_reason == "max_tokens"
+        self._record_usage(getattr(response, "usage", None))
         return "".join(block.text for block in response.content if block.type == "text")
 
     async def stream(self, system: str, user: str) -> AsyncIterator[str]:
@@ -36,3 +50,4 @@ class AnthropicClient:
                 yield text
             final = await stream.get_final_message()
             self.truncated = final.stop_reason == "max_tokens"
+            self._record_usage(getattr(final, "usage", None))

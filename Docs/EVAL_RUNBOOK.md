@@ -147,6 +147,44 @@ docker compose exec app python -m app.eval compare \
 Prints (and writes) one markdown table with refusal accuracy, citation
 accuracy, average latency, and error count per run.
 
+## Cost, the run ledger, and the latest report
+
+Every `python -m app.eval run` records what the run cost, from the token
+counts the provider itself reports (including thinking tokens, which are
+billed as output), priced by `app/pricing.py`. Each run:
+
+- writes tokens, cost, per-step models, latency percentiles and the two kinds
+  of wrong decision (off-topic answered / answerable refused) to its
+  `.summary.json`;
+- appends one line to `eval_results/ledger.jsonl` (summary numbers only, no
+  question or answer text);
+- does **not** write to `answer_audit` (eval is not employee traffic; pass
+  `--audit` to override).
+
+```
+docker compose exec app python -m app.eval run --out eval_results/mix_a \
+    --label "claude answers, gemini rewrites" --max-cost 1.00 --max-retries 0
+docker compose exec app python -m app.eval report            # all runs
+docker compose exec app python -m app.eval report --last 5 --out eval_results/report.md
+```
+
+Guards for paid runs: `--max-cost` stops after the question that crosses the
+cap; `--max-retries 0` makes every call a single attempt; the run always stops
+at the first billing/auth error and the report flags it as STOPPED.
+
+**Mixing models** needs no code: answering, query rephrasing and follow-up
+rewriting each read their own provider and model (`LLM_*`,
+`QUERY_EXPANSION_*`, `QUERY_REWRITE_*`). The report shows the mix per step and
+the cost of each.
+
+**A model with no price in `app/pricing.py` is reported as `n/a`, never `$0`.**
+Add its entry (with the pricing page and date) before comparing it. Several
+entries there are dated; some Gemini prices are promotional.
+
+`answer_audit` also records tokens and cost per live request. Streamed
+answers only report tokens when `LLM_STREAM_USAGE=true`; until it is enabled
+(verify it with one real call first), those rows hold NULL, not a partial sum.
+
 ## Choosing for long-run production use
 
 Refusal accuracy and citation accuracy are pass/fail requirements, not

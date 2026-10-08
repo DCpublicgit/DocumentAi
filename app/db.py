@@ -115,6 +115,19 @@ CREATE TABLE IF NOT EXISTS answer_audit (
 
 -- Audit reads are "what happened recently" and "what happened on date X".
 CREATE INDEX IF NOT EXISTS answer_audit_asked_at_idx ON answer_audit (asked_at DESC);
+
+-- What this answer cost, from the token counts the PROVIDER reported (app.usage),
+-- summed over every LLM call the request made (answer, query rephrasing,
+-- follow-up rewrite). Nullable and added after the table existed: rows from
+-- before this was recorded stay NULL (unknown), never 0. cost_usd is also NULL
+-- when any call used a model with no price on file (app.pricing). llm_calls
+-- keeps the per-call breakdown (role, provider, model, tokens, cost) so a
+-- mixed-model setup can be costed per step. A gibberish/refused-before-LLM
+-- request records 0 tokens and $0: nothing was spent.
+ALTER TABLE answer_audit ADD COLUMN IF NOT EXISTS input_tokens integer;
+ALTER TABLE answer_audit ADD COLUMN IF NOT EXISTS output_tokens integer;
+ALTER TABLE answer_audit ADD COLUMN IF NOT EXISTS cost_usd numeric(12, 6);
+ALTER TABLE answer_audit ADD COLUMN IF NOT EXISTS llm_calls jsonb;
 """
 
 

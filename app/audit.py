@@ -22,6 +22,7 @@ from app.citations import format_citation
 from app.config import settings
 from app.db import get_pool
 from app.retrieve.models import RetrievalResult, RetrievedChunk
+from app.usage import UsageLog
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +30,22 @@ _INSERT_SQL = """
 INSERT INTO answer_audit (
     request_id, asked_at, question, answer, refused, top_score,
     retrieved_chunks, citations, llm_provider, llm_model,
-    finish_reason, latency_ms, streamed
-) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, $13)
+    finish_reason, latency_ms, streamed,
+    input_tokens, output_tokens, cost_usd, llm_calls
+) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, $13,
+          $14, $15, $16, $17::jsonb)
 ON CONFLICT (request_id) DO NOTHING
 """
+
+# Set by the eval harness: eval questions are not employee traffic, and rows
+# for them would pollute exactly the table real usage and cost are read from
+# (it happened: 124 of the 274 rows predating this were eval runs).
+_disabled = False
+
+
+def disable_writes() -> None:
+    global _disabled
+    _disabled = True
 
 
 @dataclass(frozen=True)
@@ -50,6 +63,11 @@ class AuditRecord:
     finish_reason: str
     latency_ms: int
     streamed: bool
+    # None = not measured (see CREATE_AUDIT_SCHEMA_SQL), distinct from 0 = measured, nothing spent.
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cost_usd: float | None = None
+    llm_calls: list[dict] | None = None
 
 
 def _chunk_ref(chunk: RetrievedChunk) -> dict:
@@ -78,6 +96,7 @@ def build_record(
     preferred_clauses: dict[tuple[str, str, int], str] | None = None,
     request_id: uuid.UUID | None = None,
     asked_at: datetime | None = None,
+    usage_log: UsageLog | None = None,
 ) -> AuditRecord:
     """`result` is None only when retrieval itself never produced one; a
     refusal still carries its result, because the score that triggered the
@@ -136,6 +155,10 @@ def build_record(
         finish_reason=finish_reason,
         latency_ms=latency_ms,
         streamed=streamed,
+        input_tokens=usage_log.input_tokens if usage_log is not None else None,
+        output_tokens=usage_log.output_tokens if usage_log is not None else None,
+        cost_usd=usage_log.cost_usd if usage_log is not None else None,
+        llm_calls=usage_log.as_json() if usage_log is not None else None,
     )
 
 
@@ -148,6 +171,8 @@ async def write_audit(record: AuditRecord) -> None:
     durable audit record — delete the try/except; both call sites already run
     before the caller sees the answer.
     """
+    if _disabled:
+        return
     try:
         pool = await get_pool()
         async with pool.acquire() as conn:
@@ -166,6 +191,10 @@ async def write_audit(record: AuditRecord) -> None:
                 record.finish_reason,
                 record.latency_ms,
                 record.streamed,
+                record.input_tokens,
+                record.output_tokens,
+                record.cost_usd,
+                None if record.llm_calls is None else json.dumps(record.llm_calls),
             )
     except Exception:
         logger.exception(

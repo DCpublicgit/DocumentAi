@@ -6,8 +6,14 @@ from typing import AsyncIterator
 
 import httpx
 
+from app import usage
+
 
 class OllamaClient:
+    # Overwritten by app.llm.build_client.
+    provider = "ollama"
+    role = "answer"
+
     def __init__(self, model: str, base_url: str, max_tokens: int) -> None:
         self._model = model
         self._base_url = base_url.rstrip("/")
@@ -40,6 +46,9 @@ class OllamaClient:
             response.raise_for_status()
             data = response.json()
             self.truncated = data["choices"][0].get("finish_reason") == "length"
+            tokens_in, tokens_out = usage.billed_tokens(data.get("usage"))
+            if tokens_in or tokens_out:
+                usage.record(self.role, self.provider, self._model, tokens_in, tokens_out)
             # Same null-content guard as OpenAICompatibleClient.
             return data["choices"][0]["message"].get("content") or ""
 

@@ -21,6 +21,7 @@ from typing import AsyncIterator
 
 import httpx
 
+from app import usage
 from app.config import settings
 
 # Transient upstream conditions worth another attempt: provider rate limiting
@@ -52,6 +53,11 @@ def _retry_delay(attempt: int, response: httpx.Response | None) -> float:
 
 
 class OpenAICompatibleClient:
+    # Overwritten by app.llm.build_client; the defaults only matter for a
+    # client constructed directly (tests).
+    provider = "openai-compatible"
+    role = "answer"
+
     def __init__(self, model: str, base_url: str, api_key: str, max_tokens: int) -> None:
         self._model = model
         self._base_url = base_url.rstrip("/")
@@ -74,7 +80,14 @@ class OpenAICompatibleClient:
         }
         if temperature is not None:
             payload["temperature"] = temperature
+        if stream and settings.llm_stream_usage:
+            payload["stream_options"] = {"include_usage": True}
         return payload
+
+    def _record_usage(self, raw_usage: dict | None) -> None:
+        tokens_in, tokens_out = usage.billed_tokens(raw_usage)
+        if tokens_in or tokens_out:
+            usage.record(self.role, self.provider, self._model, tokens_in, tokens_out)
 
     async def generate(self, system: str, user: str, temperature: float | None = None) -> str:
         async with httpx.AsyncClient(timeout=300) as client:
@@ -101,6 +114,7 @@ class OpenAICompatibleClient:
                 response.raise_for_status()
                 data = response.json()
                 self.truncated = data["choices"][0].get("finish_reason") == "length"
+                self._record_usage(data.get("usage"))
                 # content is null (not "") on a filtered or empty completion —
                 # Gemini's OpenAI-compat endpoint does this. Returning None would
                 # blow up on .strip() in app/answering.py; "" flows into the
@@ -139,7 +153,14 @@ class OpenAICompatibleClient:
                             payload = line[len("data:") :].strip()
                             if payload == "[DONE]":
                                 break
-                            choice = json.loads(payload)["choices"][0]
+                            chunk = json.loads(payload)
+                            # The usage chunk (stream_options.include_usage)
+                            # carries no choices at all.
+                            if chunk.get("usage"):
+                                self._record_usage(chunk["usage"])
+                            if not chunk.get("choices"):
+                                continue
+                            choice = chunk["choices"][0]
                             if choice.get("finish_reason") == "length":
                                 self.truncated = True
                             delta = choice["delta"].get("content")

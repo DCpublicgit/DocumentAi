@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass, field
 from typing import AsyncIterator, Literal
 
-from app import timing
+from app import timing, usage
 from app.audit import build_record, write_audit
 from app.citations import (
     citation_fields,
@@ -252,6 +252,10 @@ async def _audit(
             latency_ms=int((time.perf_counter() - started) * 1000),
             cited_chunks=cited_chunks,
             preferred_clauses=preferred_clauses,
+            # Always called inside the request's usage.collect() block below;
+            # a request that never reached an LLM has an empty log, which
+            # records as "0 tokens, $0" — measured, not unknown.
+            usage_log=usage.current(),
         )
     )
 
@@ -264,7 +268,7 @@ async def answer_question(
     outcome = outcome if outcome is not None else AnswerOutcome()
     started = time.perf_counter()
 
-    with timing.request_timing("answer_question"):
+    with timing.request_timing("answer_question"), usage.collect():
         result, user_message = await _retrieve_and_prepare(question, history or [])
         if user_message is None:
             await _audit(
@@ -276,6 +280,7 @@ async def answer_question(
         client = get_client()
         with timing.stage("llm_generate"):
             raw_answer = (await client.generate(SYSTEM_PROMPT, user_message)).strip()
+        usage.require_answer_call()
         outcome.truncated = getattr(client, "truncated", False)
 
         if not raw_answer:
@@ -344,7 +349,7 @@ async def stream_answer(
     outcome = outcome if outcome is not None else AnswerOutcome()
     started = time.perf_counter()
 
-    with timing.request_timing("stream_answer"):
+    with timing.request_timing("stream_answer"), usage.collect():
         yield StageEvent("retrieving")
         result, user_message = await _retrieve_and_prepare(question, history or [])
         if user_message is None:
@@ -395,6 +400,7 @@ async def stream_answer(
                             yield "".join(held_lines)
                             held_lines = []
                         yield line + "\n"
+        usage.require_answer_call()
         _last_token_t = time.perf_counter()
         if _first_token_t is not None:
             timing.mark("llm_stream_tail", _last_token_t - _first_token_t)

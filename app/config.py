@@ -60,6 +60,13 @@ class Settings(BaseSettings):
     retrieval_candidate_n: int = Field(default=20, alias="RETRIEVAL_CANDIDATE_N")
     llm_max_tokens: int = Field(default=1024, alias="LLM_MAX_TOKENS")
     warm_up_models_enabled: bool = Field(default=True, alias="WARM_UP_MODELS_ENABLED")
+    # Asks the provider to append a usage chunk to a streamed answer
+    # (stream_options.include_usage) so the audit table can record real token
+    # counts for the main, streamed path. Off by default: not every
+    # OpenAI-compatible endpoint is known to accept the option, and a 400
+    # here would break the live answer path. Enable per provider after
+    # verifying it with one real call.
+    llm_stream_usage: bool = Field(default=False, alias="LLM_STREAM_USAGE")
     llm_max_retries: int = Field(default=5, alias="LLM_MAX_RETRIES")
     llm_retry_base_delay: float = Field(default=1.0, alias="LLM_RETRY_BASE_DELAY")
     llm_retry_max_delay: float = Field(default=30.0, alias="LLM_RETRY_MAX_DELAY")
