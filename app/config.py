@@ -20,18 +20,27 @@ class Settings(BaseSettings):
     embedding_model: str = Field(alias="EMBEDDING_MODEL")
     database_url: str = Field(alias="DATABASE_URL")
     top_k: int = Field(default=5, alias="TOP_K")
-    # Calibrated 2026-08-26 via `python -m app.eval calibrate` against the
-    # 78-question eval set: minimizes a false-pass-weighted error count
-    # (Docs/DATA_CONTRACT.md "Retrieval" — false passes cost more than false
-    # refuses here). Re-run that command after any meaningful corpus or
-    # embedding-model change; this is a measured value, not a guess.
-    score_threshold: float = Field(default=0.52, alias="SCORE_THRESHOLD")
+    # Set 2026-10-08 from an END-TO-END eval (88 questions, gemini-3.5-flash-lite,
+    # eval_results/newgate_t050_*), not from `python -m app.eval calibrate`
+    # alone. Cosine similarity cannot separate on- from off-topic here (an
+    # off-topic question scored 0.581, a real answerable one 0.515), and
+    # calibrate scores this gate in isolation — it can't see that a false
+    # pass still reaches the model's own refusal rule (SYSTEM_PROMPT rule 4),
+    # while a false refuse has no second chance. At 0.50 the model refused
+    # 13/13 off-topic questions and 0.52 refused one more answerable
+    # question ("(BoD) ..."). Re-run the end-to-end eval, not just calibrate,
+    # after any meaningful corpus or embedding-model change.
+    score_threshold: float = Field(default=0.50, alias="SCORE_THRESHOLD")
     policy_dir: str = Field(alias="POLICY_DIR")
     rerank_score_threshold: float = Field(default=0.5, alias="RERANK_SCORE_THRESHOLD")
     rerank_enabled: bool = Field(default=True, alias="RERANK_ENABLED")
     rerank_model: str = Field(default="BAAI/bge-reranker-v2-m3", alias="RERANK_MODEL")
     rerank_top_n: int = Field(default=10, alias="RERANK_TOP_N")
-    query_expansion_enabled: bool = Field(default=True, alias="QUERY_EXPANSION_ENABLED")
+    # Off by default since 2026-10-08: on the 88-question eval it changed
+    # accuracy by one question either way (within noise), while adding a
+    # serial LLM call (~1.3 s median) and ~10% of per-question cost, and its
+    # rephrasings vary run to run, so the excerpts an answer rests on did too.
+    query_expansion_enabled: bool = Field(default=False, alias="QUERY_EXPANSION_ENABLED")
     query_expansion_provider: str = Field(
         default="anthropic", alias="QUERY_EXPANSION_PROVIDER"
     )

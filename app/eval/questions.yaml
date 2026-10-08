@@ -431,3 +431,58 @@
   question: "Мэдээллийн аюулгүй байдлын багийн ажилтнуудын цалингийн сүлжээ ямар вэ?"
   expected_source_file: null
   should_refuse: true
+
+# --- Real employee questions from the 2026-10-08 paid model test. Sources
+# confirmed against live policy_chunks and the answers three models gave.
+# Left out on purpose: "Зөөврийн мэдээллийн хэрэгсэлд ямар төхөөрөмжүүд
+# хамаарах вэ?" (no ingested document defines removable media yet) and
+# "Хэрэглэгчийн нууц үг үүсгэх шаардлага" (no single source document).
+- id: 79
+  question: "(BoD) гэж юуг илэрхийлж байгаа вэ?"
+  expected_source_file: "10. МАБ үүрэг хариуцлагын баримт бичиг.docx"
+  should_refuse: false
+
+- id: 80
+  question: "Нөөцлөлтийн 3-2-1 дүрэм гэж юу вэ?"
+  expected_source_file: "L1-POL-11_Нөөцлөлтийн_бодлого.txt"
+  should_refuse: false
+
+- id: 81
+  question: "Байгууллагын өмчийг засварт өгөхөөр авч гарах үед хэрхэн гаргах вэ?"
+  expected_source_file: "L3-SOP-50_Биет_аюулгүй_байдлын_хяналтын_журам.txt"
+  should_refuse: false
+
+- id: 82
+  question: "Цэвэр ширээ, цэвэр дэлгэцийн бодлогын зорилго юу вэ?"
+  expected_source_file: "L1-POL-13_Цэвэр_ширээ_цэвэр_дэлгэцийн_бодлого.txt"
+  should_refuse: false
+
+- id: 83
+  question: "Төгсгөлийн төхөөрөмжийн үндсэн хамгаалалт юу вэ?"
+  expected_source_file: "L1-POL-17_Төгсгөлийн_төхөөрөмжийн_аюулгүй_байдлын_бодлого.txt"
+  should_refuse: false
+
+- id: 84
+  question: "VPN ашиглалтын шаардлага"
+  expected_source_file: "L1-POL-17_Төгсгөлийн_төхөөрөмжийн_аюулгүй_байдлын_бодлого.txt"
+  should_refuse: false
+
+- id: 85
+  question: "Хортой программ хангамжаас хамгаалах сургалтын агуулга"
+  expected_source_file: "L1-POL-18_Хортой_программ_хангамжийг_хянах_бодлого.txt"
+  should_refuse: false
+
+- id: 86
+  question: "Сүлжээний администраторын үүрэг хариуцлага юу вэ?"
+  expected_source_file: "L1-POL-19_Сүлжээний_аюулгүй_байдлын_бодлого.txt"
+  should_refuse: false
+
+- id: 87
+  question: "Сүлжээнд хатуу хориглох үйл ажиллагааны жагсаалт"
+  expected_source_file: "L1-POL-27_Зохистой_хэрэглээний_бодлого.txt"
+  should_refuse: false
+
+- id: 88
+  question: "Лог бүртгэл нь ямар мэдээллийг заавал агуулсан байх ёстой вэ?"
+  expected_source_file: "L3-SOP-49_Лог_бүртгэлийн_журам.txt"
+  should_refuse: false

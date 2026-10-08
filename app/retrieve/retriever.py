@@ -125,6 +125,30 @@ def _own_score(chunk: RetrievedChunk, rerank_score: float, rows_by_id: dict) -> 
     return float(row["cosine_similarity"])
 
 
+def include_best_match(
+    candidate_ids: list[tuple[str, str, int]],
+    best_id: tuple[str, str, int],
+    limit: int,
+) -> list[tuple[str, str, int]]:
+    """Guarantees the chunk most similar to the ORIGINAL question survives the
+    TOP_K cut, replacing the lowest-ranked candidate if RRF pushed it out.
+
+    The refusal gate scores the best candidate in this window (see
+    retrieve()), so the window must contain the best match — otherwise the
+    gate's verdict and what the model actually sees would rest on different
+    evidence. RRF can push it out: the lexical branch OR-joins every query
+    term, so a chunk matching only common words ("гэж", "юу", "вэ") in several
+    ranked lists outranks one that is the single best dense match. Traced
+    live: for "(BoD) гэж юуг илэрхийлж байгаа вэ?" the only chunk that
+    defines BoD was vector #1 but RRF #3.
+
+    Pure and DB-free, same reason as select_cited_chunks below.
+    """
+    if best_id in candidate_ids[:limit]:
+        return candidate_ids[:limit]
+    return candidate_ids[: limit - 1] + [best_id]
+
+
 def select_cited_chunks(
     scored_chunks: list[tuple[RetrievedChunk, float]], threshold: float
 ) -> list[RetrievedChunk]:
@@ -207,6 +231,9 @@ async def retrieve(pool: asyncpg.Pool, query: str) -> RetrievalResult:
     # TOP_K cut straight from RRF order (rerank() below is then a no-op).
     candidate_n = settings.rerank_top_n if settings.rerank_enabled else settings.top_k
     candidate_ids = merged_ids[:candidate_n]
+    if candidate_ids and not settings.rerank_enabled:
+        best_id = max(rows_by_id, key=lambda i: rows_by_id[i]["cosine_similarity"])
+        candidate_ids = include_best_match(candidate_ids, best_id, candidate_n)
 
     if not candidate_ids:
         return RetrievalResult(chunks=[], top_score=0.0, refuse=True)
@@ -221,8 +248,15 @@ async def retrieve(pool: asyncpg.Pool, query: str) -> RetrievalResult:
     ]
 
     # Each branch's score is gated by the threshold for its own scale — see
-    # refusal_threshold() above.
-    top_score = scored_chunks[0][1]
+    # refusal_threshold() above. The BEST score in the window, not the first:
+    # with rerank off the window is in RRF order, and gating on whichever
+    # chunk RRF happened to put first made the verdict depend on that order
+    # — which query expansion's rephrasing reshuffles between runs, so the
+    # same question measurably flipped between answering (0.57) and refusing
+    # (0.48). With include_best_match above, this is the original question's
+    # single best cosine match, independent of expansion. It also keeps
+    # refuse == (cited_chunks is empty) exactly.
+    top_score = max(score for _chunk, score in scored_chunks)
     threshold = refusal_threshold()
     refuse = top_score < threshold
 

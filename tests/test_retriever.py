@@ -7,7 +7,7 @@ from datetime import date
 
 from app.config import settings
 from app.retrieve.models import RetrievedChunk
-from app.retrieve.retriever import _own_score, select_cited_chunks
+from app.retrieve.retriever import _own_score, include_best_match, select_cited_chunks
 
 
 def _chunk(file_name: str, index: int = 0) -> RetrievedChunk:
@@ -49,6 +49,31 @@ def test_select_cited_chunks_can_return_fewer_than_top_k():
     cited = select_cited_chunks(scored, threshold=0.35)
 
     assert cited == [relevant]
+
+
+def _pk(name: str) -> tuple[str, str, int]:
+    return (name, "v1", 0)
+
+
+def test_include_best_match_leaves_the_window_alone_when_best_is_already_in_it():
+    window = [_pk("a"), _pk("b"), _pk("c")]
+
+    assert include_best_match(window, _pk("b"), limit=3) == window
+
+
+def test_include_best_match_replaces_the_lowest_ranked_candidate():
+    """Regression: "(BoD) гэж юуг илэрхийлж байгаа вэ?" — the only chunk
+    defining BoD was the best dense match but fell below RRF chunks that only
+    shared common words with the question."""
+    window = [_pk("a"), _pk("b"), _pk("c")]
+
+    assert include_best_match(window, _pk("best"), limit=3) == [_pk("a"), _pk("b"), _pk("best")]
+
+
+def test_include_best_match_never_grows_the_window_past_the_limit():
+    window = [_pk(n) for n in "abcde"]
+
+    assert len(include_best_match(window, _pk("best"), limit=5)) == 5
 
 
 def test_own_score_uses_rerank_score_when_reranking_is_enabled(monkeypatch):
